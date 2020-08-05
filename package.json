@@ -1,0 +1,13 @@
+{
+	"name": "textshare",
+	"version": "1.0.0",
+	"description": "Text sharing service",
+	"author": "Shira Rotman <shiranetmail@gmail.com>",
+	"private": true,
+	"license": "UNLICENSED",
+	"engines":
+	{
+		"node": "^12.18.3",
+		"npm": "^6.14.6"
+	}
+}
