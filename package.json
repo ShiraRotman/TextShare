@@ -5,9 +5,11 @@
 	"author": "Shira Rotman <shiranetmail@gmail.com>",
 	"private": true,
 	"license": "UNLICENSED",
-	"engines":
-	{
+	"engines": {
 		"node": "^12.18.3",
 		"npm": "^6.14.6"
+	},
+	"dependencies": {
+		"express": "^4.17.1"
 	}
 }

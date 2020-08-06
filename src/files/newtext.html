@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width,initial-scale=1">
+		<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.1/css/bootstrap.min.css">
+		<title>Text Share - New text</title>
+	</head>
+	<body style="background-color: #F0F0F0;">
+		<div class="bg-white mx-auto p-4" style="width: 80%; border-radius: 5px;">
+			<h4 style="margin-top: 5rem;">New Text</h4>
+			<form id="newtextForm" method="post" action="/newtext" class="mt-3">
+				<!-- TODO: Adjust the number of rows to fit the screen -->
+				<textarea id="newtextArea" name="text" rows="23" maxlength="1024" autofocus required 
+					class="form-control" style="width: 97%; resize: none;"></textarea>
+				<button type="submit" class="btn btn-primary mt-2">Share</button>
+			</form>
+		</div>
+	</body>
+</html>
+	
