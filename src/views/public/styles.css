@@ -1,0 +1,12 @@
+.bg-muted { background-color: #F0F0F0; }
+.text-title { margin-top: 5rem; }
+.text-container { width: 97%; }
+.content-area
+{
+	width: 80%;
+	background-color: white;
+	border-radius: 5px;
+	padding: 1.5rem;
+	margin-left: auto;
+	margin-right: auto;
+}

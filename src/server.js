@@ -3,20 +3,34 @@ const PORT=3000,MAX_TEXT_LENGTH=1024,KEY_CHARS_NUM=6;
 
 const crypto=require("crypto"),path=require("path");
 const express=require("express"),server=express();
+const renderer=require("nunjucks");
 const persist=require("./persistence.js");
 
+const viewsdir=path.join(__dirname,"views");
+renderer.configure(viewsdir,{ autoescape: true, express: server });
 server.use(express.json(),express.urlencoded({extended: true}));
-server.use("/",express.static(path.join(__dirname,"files")));
+server.use("/",express.static(`${viewsdir}/public`));
 
 server.get("/",function(request,response) 
-{ response.redirect("/newtext.html"); });
+{ response.render("newtext.njk.html",{maxlength: MAX_TEXT_LENGTH}); });
 
 server.get(`/:addresskey([A-Za-z0-9=\\\+\\\/]{${KEY_CHARS_NUM}})`,function(request,response,next)
 {
 	const addresskey=request.params.addresskey;
-	persist.findText(addresskey).then(function(result)
+	persist.findText(addresskey).then(function(dataObj)
 	{
-		if (result) response.status(200).send(result.text);
+		if (dataObj)
+		{
+			//For future REST support
+			const contentType=request.accepts("text/html");
+			if (!contentType) response.sendStatus(406); //Not Acceptable
+			else
+			{
+				const result={text: dataObj.text};
+				if (contentType==="text/html") 
+					response.render("showtext.njk.html",result);
+			}
+		}
 		else response.sendStatus(404);
 	}).catch(next);
 });
