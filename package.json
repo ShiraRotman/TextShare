@@ -12,8 +12,11 @@
 	},
 	"dependencies": {
 		"express": "^4.17.1",
+		"express-session": "^1.17.1",
 		"mongodb": "^3.6.0",
 		"nunjucks": "^3.2.2",
+		"passport": "^0.4.1",
+		"passport-local": "^1.0.0",
 		"saslprep": "^1.0.3"
 	}
 }

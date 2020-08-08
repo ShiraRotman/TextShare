@@ -7,7 +7,7 @@ function connectToDB()
 			{ useUnifiedTopology: true });
 }
 
-function findText(textkey)
+function findDocument(collection,dockey)
 {
 	return new Promise(async function(resolve,reject)
 	{
@@ -16,8 +16,8 @@ function findText(textkey)
 			const client=await connectToDB();
 			try
 			{
-				const document=await client.db().collection("stored_texts").
-						findOne({_id: textkey});
+				const document=await client.db().collection(collection).
+						findOne({_id: dockey});
 				resolve(document);
 			}
 			catch(error) { reject(error); }
@@ -26,6 +26,9 @@ function findText(textkey)
 		catch(error) { reject(error); }
 	});
 }
+
+function findUser(username) { return findDocument("users",username); }
+function findText(textkey) { return findDocument("stored_texts",textkey); }
 
 function insertText(textkey,textvalue)
 {
@@ -64,5 +67,5 @@ DataIntegrityError.prototype.name="DataIntegrityError";
 module.exports=
 {
 	DataIntegrityError: DataIntegrityError,
-	findText: findText, insertText: insertText
+	findUserByName: findUser, findTextByKey: findText, insertText: insertText
 };

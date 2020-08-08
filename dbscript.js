@@ -14,3 +14,10 @@ db.createRole(
 })
 
 db.createUser({user: "appuser", pwd: "pacman", roles: ["approle"]})
+db.createCollection("users")
+
+db.grantPrivilegesToRole("approle",
+[{ 
+	resource: { db: "textshare", collection: "users"},
+	actions: ["find"]
+}])
