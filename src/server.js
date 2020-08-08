@@ -1,5 +1,5 @@
 
-const PORT=3000,MAX_TEXT_LENGTH=1024,KEY_CHARS_NUM=6;
+const PORT=4096,MAX_TEXT_LENGTH=1024,KEY_CHARS_NUM=6;
 
 const crypto=require("crypto"),path=require("path");
 const express=require("express"),server=express();
