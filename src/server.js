@@ -58,7 +58,7 @@ server.use(session(
 
 const viewsdir=pathutils.join(__dirname,"views");
 renderer.configure(viewsdir,{ autoescape: true, express: server });
-server.use(express.json(),express.urlencoded({extended: true}));
+server.use(express.urlencoded({extended: true}));
 server.use("/",express.static(`${viewsdir}/public`));
 server.use(passport.initialize(),passport.session());
 
@@ -146,12 +146,11 @@ server.get(`/:addresskey([A-Za-z0-9=\\\+\\\/]{${KEY_CHARS_NUM}})`,function(reque
 server.post("/newtext",async function(request,response,next)
 {
 	let newtext=request.body.text;
-	if (typeof(newtext)!=="string") newtext=newtext.toString();
-	//Bad Request status code (missing data)
-	if (newtext.length===0) response.status(400).send("No text was sent!");
+	//Bad Request status code (domain validation errors)
+	if ((!newtext)||(newtext.length===0)) 
+		response.status(400).send("No text was sent!");
 	else if (newtext.length>MAX_TEXT_LENGTH)
-		//Request Entity too Long status code
-		response.status(413).send(`You cannot share a text that's longer than ${MAX_TEXT_LENGTH}!`);
+		response.status(400).send(`You cannot share a text that's longer than ${MAX_TEXT_LENGTH}!`);
 	else
 	{
 		//Based on the algorithm suggested on https://nlogn.in/designing-a-realtime-scalable-url-shortening-service-like-tiny-url/
