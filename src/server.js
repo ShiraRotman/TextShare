@@ -1,5 +1,5 @@
 
-const PORT=4096,MAX_TEXT_LENGTH=1024,KEY_CHARS_NUM=6;
+const DEF_PORT=4096,MAX_TEXT_LENGTH=1024,KEY_CHARS_NUM=6;
 const MIN_USERNAME_LENGTH=8,MAX_USERNAME_LENGTH=15;
 const MIN_PASSWORD_LENGTH=8,MAX_PASSWORD_LENGTH=25;
 const LOGIN_ERROR_TEXT="Incorrect username or password!";
@@ -171,8 +171,9 @@ server.post("/newtext",async function(request,response,next)
 	}
 });
 
+let port=process.env.NODE_PORT; if (!port) port=DEF_PORT;
 https.createServer(
 {
 	key: filesystem.readFileSync(pathutils.join(__dirname,"sitekey.pem")),
 	cert: filesystem.readFileSync(pathutils.join(__dirname,"sitecert.pem"))
-},server).listen(PORT,function() { console.log(`Now listening on port ${PORT}.`); });
+},server).listen(port,function() { console.log(`Now listening on port ${port}.`); });
