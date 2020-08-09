@@ -21,3 +21,9 @@ db.grantPrivilegesToRole("approle",
 	resource: { db: "textshare", collection: "users"},
 	actions: ["find"]
 }])
+
+db.grantPrivilegesToRole("approle",
+[{
+	resource: { db: "textshare", collection: "users"},
+	actions: ["insert"]
+}])

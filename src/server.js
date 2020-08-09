@@ -3,6 +3,7 @@ const DEF_PORT=4096,MAX_TEXT_LENGTH=1024,KEY_CHARS_NUM=6;
 const MIN_USERNAME_LENGTH=8,MAX_USERNAME_LENGTH=15;
 const MIN_PASSWORD_LENGTH=8,MAX_PASSWORD_LENGTH=25;
 const LOGIN_ERROR_TEXT="Incorrect username or password!";
+const SIGNUP_ERROR_TEXT="Username already exists!";
 
 const https=require("https"),crypto=require("crypto");
 const filesystem=require("fs"),pathutils=require("path");
@@ -16,16 +17,42 @@ passport.use("login",new Strategy(async function(username,password,handler)
 	try
 	{
 		const dataObj=await persist.findUserByName(username);
-		if (!dataObj) return handler(null,false,{loginerror: LOGIN_ERROR_TEXT});
+		if (!dataObj) return handler(null,false,{submiterror: LOGIN_ERROR_TEXT});
 		else
 		{
 			const hashresult=await hashpassword(password,dataObj.salt);
 			if (hashresult===dataObj.password)
 				return handler(null,{username: username});
-			else return handler(null,false,{loginerror: LOGIN_ERROR_TEXT});
+			else return handler(null,false,{submiterror: LOGIN_ERROR_TEXT});
 		}
 	}
 	catch (error) { return handler(error); }
+}));
+
+passport.use("signup",new Strategy(async function(username,password,handler)
+{
+	try
+	{
+		const dataObj=await persist.findUserByName(username);
+		if (dataObj) 
+			return handler(null,false,{signuperror: SIGNUP_ERROR_TEXT});
+		else
+		{
+			//Since a small quantity is generated, it's done synchronously
+			const salt=crypto.randomBytes(16).toString("hex");
+			const hashresult=await hashpassword(password,salt);
+			await persist.insertUser(username,hashresult,salt);
+			return handler(null,{username: username});
+		}
+	}
+	catch (error)
+	{
+		/*Might occur if a user with the same name has succeeded registering 
+		  between the find and insert calls*/
+		if (error instanceof persist.DataIntegrityError)
+			return handler(null,false,{signuperror: SIGNUP_ERROR_TEXT});
+		else return handler(error);
+	}
 }));
 
 function hashpassword(password,salt)
@@ -70,46 +97,49 @@ server.get("/",function(request,response)
 	response.render("newtext.njk.html",renderdata);
 });
 
-server.get("/login",function(request,response)
+server.get("/login",serveSignLogin.bind(null,false));
+server.get("/signup",serveSignLogin.bind(null,true));
+
+function serveSignLogin(signup,request,response)
 {
 	if ((request.isAuthenticated)&&(request.isAuthenticated())) request.logout();
-	const renderdata=createSignLoginPageData();
-	if (request.session.loginerror)
-		renderdata.loginerror=request.session.loginerror;
-	response.render("signlogin.njk.html",renderdata);
-});
-
-function createSignLoginPageData()
-{
-	return {
+	const renderdata=
+	{
 		minUsernameLength: MIN_USERNAME_LENGTH,
 		maxUsernameLength: MAX_USERNAME_LENGTH,
 		minPasswordLength: MIN_PASSWORD_LENGTH,
 		maxPasswordLength: MAX_PASSWORD_LENGTH
-	}	
+	};
+	if (request.session.submiterror)
+		renderdata.submiterror=request.session.submiterror;
+	if (signup) renderdata.signup=true;
+	response.render("signlogin.njk.html",renderdata);
 }
 
-server.post("/login",function(request,response,next)
+server.post("/login",authenticate.bind(null,"login"));
+server.post("/signup",authenticate.bind(null,"signup"));
+
+function authenticate(strategy,request,response,next)
 {
 	const username=request.body.username,password=request.body.password;
 	const message=checkCredentials(username,password);
 	if (message!==null) response.status(400).send(message);
-	else passport.authenticate("login",function(error,userdata,opdata)
+	else passport.authenticate(strategy,function(error,userdata,opdata)
 	{
 		if (error) return next(error);
 		else if (!userdata)
 		{
-			request.session.loginerror=opdata.loginerror;
-			return response.redirect("/login");
+			request.session.submiterror=opdata.submiterror;
+			return response.redirect(`/${strategy}`);
 		}
 		else request.login(userdata,function(err)
 		{
-			delete request.session.loginerror;
+			delete request.session.submiterror;
 			if (err) return next(err);
 			else return response.redirect("/");
 		});
 	})(request,response,next);
-});
+}
 
 function checkCredentials(username,password)
 {

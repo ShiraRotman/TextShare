@@ -30,6 +30,7 @@ function findDocument(collection,dockey)
 function findUser(username) { return findDocument("users",username); }
 function findText(textkey) { return findDocument("stored_texts",textkey); }
 
+//TODO: Support more fields as a textdata argument
 function insertText(textkey,textvalue)
 {
 	return new Promise(async function(resolve,reject)
@@ -45,8 +46,9 @@ function insertText(textkey,textvalue)
 					reject(new DataIntegrityError(`Primary key already exists (${textkey})!`));
 				else
 				{
-					const result=await collection.insertOne({_id: textkey, text: textvalue});
-					if (result.insertedCount==1) resolve();
+					const result=await collection.insertOne(
+					{_id: textkey, text: textvalue});
+					if (result.insertedCount===1) resolve();
 					else reject(new Error("Unexpected error! Text hasn't been inserted!"));
 				}
 			}
@@ -54,6 +56,34 @@ function insertText(textkey,textvalue)
 			finally { client.close().catch(()=>{ })}
 		}
 		catch(error) { reject(error); };
+	});
+}
+
+function insertUser(username,password,salt)
+{
+	return new Promise(async function(resolve,reject)
+	{
+		try
+		{
+			const client=await connectToDB();
+			const collection=client.db().collection("users");
+			try
+			{
+				const document=await collection.findOne({_id: username});
+				if (document)
+					reject(new DataIntegrityError("User already exists!"));
+				else
+				{
+					const result=await collection.insertOne(
+					{_id: username, password: password, salt: salt });
+					if (result.insertedCount===1) resolve();
+					else reject(new Error("Unexpected error! User hasn't been added!"));
+				}
+			}
+			catch(error) { reject(error); }
+			finally { client.close().catch(()=>{ })}
+		}
+		catch(error) { reject(error); }
 	});
 }
 
@@ -67,5 +97,6 @@ DataIntegrityError.prototype.name="DataIntegrityError";
 module.exports=
 {
 	DataIntegrityError: DataIntegrityError,
-	findUserByName: findUser, findTextByKey: findText, insertText: insertText
+	findUserByName: findUser, insertUser: insertUser,
+	findTextByKey: findText, insertText: insertText
 };
