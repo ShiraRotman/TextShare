@@ -4,7 +4,8 @@ const MIN_USERNAME_LENGTH=8,MAX_USERNAME_LENGTH=15;
 const MIN_PASSWORD_LENGTH=8,MAX_PASSWORD_LENGTH=25;
 const LOGIN_ERROR_TEXT="Incorrect username or password!";
 
-const crypto=require("crypto"),path=require("path");
+const https=require("https"),crypto=require("crypto");
+const filesystem=require("fs"),pathutils=require("path");
 const express=require("express"),server=express();
 const session=require("express-session"),renderer=require("nunjucks");
 const passport=require("passport"),Strategy=require("passport-local").Strategy;
@@ -52,10 +53,10 @@ passport.deserializeUser(async function(username,handler)
 server.use(session(
 {
 	secret: "monster bash", resave: false, rolling: true, unset: "destroy",
-	saveUninitialized: false, cookie: {maxAge: 1800000} //30*60*1000
+	saveUninitialized: false, cookie: {maxAge: 1800000, secure: true} //30*60*1000
 }));
 
-const viewsdir=path.join(__dirname,"views");
+const viewsdir=pathutils.join(__dirname,"views");
 renderer.configure(viewsdir,{ autoescape: true, express: server });
 server.use(express.json(),express.urlencoded({extended: true}));
 server.use("/",express.static(`${viewsdir}/public`));
@@ -170,4 +171,8 @@ server.post("/newtext",async function(request,response,next)
 	}
 });
 
-server.listen(PORT,function() { console.log(`Now listening on port ${PORT}.`); });
+https.createServer(
+{
+	key: filesystem.readFileSync(pathutils.join(__dirname,"sitekey.pem")),
+	cert: filesystem.readFileSync(pathutils.join(__dirname,"sitecert.pem"))
+},server).listen(PORT,function() { console.log(`Now listening on port ${PORT}.`); });
