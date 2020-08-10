@@ -67,14 +67,11 @@ function hashpassword(password,salt)
 passport.serializeUser(function(userdata,handler)
 { handler(null,userdata.username); });
 
-passport.deserializeUser(async function(username,handler)
+passport.deserializeUser(function(username,handler)
 {
-	try
-	{
-		const dataObj=await persist.findUserByName(username);
-		handler(null,{username: username});
-	}
-	catch (error) { return handler(error); }
+	persist.findUserByName(username).then(function()
+	{ handler(null,{username: username}); }).
+	catch (function(error) { return handler(error); });
 });
 
 server.use(session(
