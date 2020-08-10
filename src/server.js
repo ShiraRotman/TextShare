@@ -94,6 +94,12 @@ server.get("/",function(request,response)
 	response.render("newtext.njk.html",renderdata);
 });
 
+server.get("/logout",function(request,response)
+{
+	if (request.logout) request.logout();
+	response.redirect("/");
+});
+
 server.get("/login",serveSignLogin.bind(null,false));
 server.get("/signup",serveSignLogin.bind(null,true));
 
