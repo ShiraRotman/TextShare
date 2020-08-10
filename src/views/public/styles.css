@@ -1,6 +1,12 @@
-.bg-muted { background-color: #F0F0F0; }
-.text-title { margin-top: 5rem; }
 .text-container { width: 97%; }
+.link-button 
+{
+	font-weight: bold;
+	padding: 0.5rem !important;
+	margin-left: 0.25rem;
+	margin-right: 0.25rem;
+}
+
 .content-area
 {
 	width: 80%;
@@ -10,3 +16,17 @@
 	margin-left: auto;
 	margin-right: auto;
 }
+
+#newtextButton 
+{ 
+	color: white; 
+	background-color: limegreen; 
+	padding-bottom: 0.25rem !important; 
+}
+
+#newtextButton:hover,#newtextButton:focus { background-color: forestgreen; }
+#userDropdown:hover,#userDropdown:focus { box-shadow: 0 0 0 0.2rem white; }
+#loginButton:hover,#loginButton:focus { background-color: steelblue; }
+#signupButton:hover,#signupButton:focus
+{ background-color: lightgray !important; color: #17a2b8 !important; }
+

@@ -164,9 +164,13 @@ server.get(`/:addresskey([A-Za-z0-9=\\\+\\\/]{${KEY_CHARS_NUM}})`,function(reque
 			if (!contentType) response.sendStatus(406); //Not Acceptable
 			else
 			{
-				const result={text: dataObj.text};
-				if (contentType==="text/html") 
-					response.render("showtext.njk.html",result);
+				const renderdata={text: dataObj.text};
+				if (contentType==="text/html")
+				{
+					if ((request.isAuthenticated)&&(request.isAuthenticated()))
+						renderdata.username=request.user.username;
+					response.render("showtext.njk.html",renderdata);
+				}
 			}
 		}
 		else response.sendStatus(404);
