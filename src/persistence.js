@@ -30,8 +30,7 @@ function findDocument(collection,dockey)
 function findUser(username) { return findDocument("users",username); }
 function findText(textkey) { return findDocument("stored_texts",textkey); }
 
-//TODO: Support more fields as a textdata argument
-function insertText(textkey,textvalue)
+function insertText(textkey,textvalue,settings,username)
 {
 	return new Promise(async function(resolve,reject)
 	{
@@ -41,13 +40,15 @@ function insertText(textkey,textvalue)
 			const collection=client.db().collection("stored_texts");
 			try
 			{
-				const document=await collection.findOne({_id: textkey});
+				let document=await collection.findOne({_id: textkey});
 				if (document)
 					reject(new DataIntegrityError(`Primary key already exists (${textkey})!`));
 				else
 				{
-					const result=await collection.insertOne(
-					{_id: textkey, text: textvalue});
+					document={_id: textkey, text: textvalue};
+					Object.assign(document,settings);
+					if (username) document.username=username;
+					const result=await collection.insertOne(document);
 					if (result.insertedCount===1) resolve();
 					else reject(new Error("Unexpected error! Text hasn't been inserted!"));
 				}

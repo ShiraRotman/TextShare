@@ -10,12 +10,12 @@
 	</head>
 	<body style="background-color: #f0f0f0;">
 		<div class="container-fluid mx-0 px-0">
-			<nav class="navbar navbar-dark bg-info">
+			<nav class="navbar navbar-dark bg-info fixed-top">
 				<div class="container-fluid">
 					<div class="d-flex"> <!-- Left Section -->
 						<span class="navbar-brand" style="font-size: 1.5rem;">Text Share</span>
 						<a id="newtextButton" href="/" class="btn link-button">
-							<img src="./plusicon.svg" width="32" height="32">
+							<img src="plusicon.svg" width="32" height="32"/>
 							<span class="align-middle">New Text</span>
 						</a>
 					</div>
@@ -48,8 +48,7 @@
 			</div>
 		</div>
 		
-		<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
 		<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
-		<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+		{% block scripts %}{% endblock %}
 	</body>
 </html>

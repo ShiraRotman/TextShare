@@ -3,13 +3,187 @@
 	New Text
 {% endblock %}
 {% block contenttitle %}
-	New Text {% if username %} by {{ username }} {% endif %}
+	New Text
 {% endblock %}
+
 {% block content %}
-	<form id="newtextForm" method="post" action="/newtext" class="mt-3">
-		<!-- TODO: Adjust the number of rows to fit the screen -->
-		<textarea id="newtextArea" name="text" rows="20" maxlength="{{ maxlength }}" autofocus required 
-			class="form-control text-container" style="resize: none;"></textarea>
-		<button type="submit" class="btn btn-primary mt-2">Share</button>
+	<form id="newtextForm" method="post" action="/newtext" class="mt-3" onsubmit="newtextFormSubmitted()">
+		<div class="form-row">
+			<textarea id="newtextArea" name="text" rows="20" maxlength="{{ maxTextLength }}"
+				class="form-control text-container" style="resize: none;" autofocus required></textarea>
+		</div>
+		<div class="form-row"><h5>Optional Settings</h5></div>
+		<div class="form-row">
+			<label for="formatSelect" class="col-2 col-lg-1 col-form-label">
+				Formatting:
+			</label>
+			<div class="col-2 col-lg-1">
+				<select id="formatSelect" name="format" class="form-control w-100">
+					<option value="N" selected>None</option>
+					<option value="C">Code</option>
+					<option value="B">Blockquote</option>
+				</select>
+			</div>
+		</div>
+		<div class="form-row align-items-center">
+			<label for="quantityInput" class="col-2 col-lg-1 col-form-label">
+				Expiration:
+			</label>
+			<div id="periodRadioSection" class="form-check form-check-inline">
+				<input id="periodExpireRadio" type="radio" name="expiry" value="P" checked 
+					class="form-check-input" onclick="changePeriodControlsState(false)"/>
+				<label for="periodExpireRadio" class="form-check-label">After</label>
+			</div>
+			<!-- TODO: Refactor to a library/web component -->
+			<div class="col-2 col-lg-1 input-group">
+				<div class="input-group-prepend w-25" style="margin-right: 0;">
+					<button type="button" class="w-100 step-button down-button period-comp"
+						onclick="stepButtonClicked(event,-1)">
+						<img src="triangle-down.svg" width="16" height="16"/>
+					</button>
+				</div>
+				<input id="quantityInput" name="quantity" type="number" maxlength="2" pattern="\d*"
+					class="form-control w-50 text-center period-comp" value="1" min="1" step="1"/>
+				<div class="input-group-append w-25" style="margin-left: 0;">
+					<button type="button" class="w-100 step-button up-button period-comp"
+						onclick="stepButtonClicked(event,1)">
+						<img src="triangle-up.svg" width="16" height="16"/>
+					</button>
+				</div>
+			</div>
+			<div id="periodSelectSection">
+				<select id="periodSelect" name="period" onchange="periodSelectChanged(event)"
+					class="form-control w-100 period-comp">
+					{% for period in periods %}
+						<option value="{{ period.value }}" data-max="{{ period.max }}">
+							{{ period.name }}
+						</option>
+					{% endfor %}
+				</select>
+			</div>
+			<div class="col-2 col-lg-1 ml-3 form-check form-check-inline">
+				<input id="neverExpireRadio" type="radio" name="expiry" value="N" 
+					class="form-check-input" onclick="changePeriodControlsState(true)"/>
+				<label for="neverExpireRadio" class="form-check-label">Never</label>
+			</div>
+		</div>
+		<div class="form-row">
+			<label for="nameTitleInput" class="col-2 col-lg-1 col-form-label">
+				Name / Title:
+			</label>
+			<div class="col-4 col-lg-2">
+				<input id="nameTitleInput" name="nametitle" type="text" autocomplete="off"
+					maxlength="{{ maxNameLength }}" class="form-control w-100"/>
+			</div>
+		</div>
+		<div class="form-row">
+			<button type="submit" class="btn btn-primary">Share</button>
+		</div>
 	</form>
+{% endblock %}
+
+{% block scripts %}
+	<script type="text/javascript">
+		const numericInputModels=new WeakMap();
+		
+		window.addEventListener("load",function()
+		{ 
+			if (Number.parseInt===undefined) Number.parseInt=window.parseInt;
+			if (Number.isNaN===undefined) Number.isNaN=window.isNaN;
+			
+			const periodSelect=document.getElementById("periodSelect");
+			const maxvalue=periodSelect.options[periodSelect.selectedIndex].
+					getAttribute("data-max");
+			document.getElementById("quantityInput").max=maxvalue;
+			
+			const numericInputs=document.querySelectorAll(":scope input[type='number']");
+			Array.prototype.forEach.call(numericInputs,function(numericInput)
+			{
+				/*In the refactoring, use a full object and throw errors if any 
+				  of the initial values is invalid*/
+				numericInputModels.set(numericInput,
+				{ 
+					value: Number.parseInt(numericInput.value,10),
+					min: Number.parseInt(numericInput.min,10),
+					max: Number.parseInt(numericInput.max,10),
+					step: Number.parseInt(numericInput.step,10)
+				});
+			});
+		});
+		
+		function changePeriodControlsState(disabled)
+		{
+			const components=document.querySelectorAll(":scope .period-comp");
+			Array.prototype.forEach.call(components,function(component)
+			{ component.disabled=disabled; });
+		}
+		
+		function periodSelectChanged(event)
+		{
+			const option=event.target.options[event.target.selectedIndex];
+			const quantityInput=document.getElementById("quantityInput");
+			const model=numericInputModels.get(quantityInput);
+			//Only one of the objects will have to be updated
+			quantityInput.max=option.getAttribute("data-max");
+			model.max=Number.parseInt(quantityInput.max,10);
+			adjustNumericInputValue(quantityInput);
+		} 
+		
+		function stepButtonClicked(event,value)
+		{
+			event.preventDefault();
+			let inputGroup=event.target.parentElement;
+			//Could have used the closest method, but less browsers support it
+			while (!inputGroup.classList.contains("input-group"))
+				inputGroup=inputGroup.parentElement;
+			const numericInput=inputGroup.querySelector(":scope input[type='number']");
+			//Not all browsers support the stepUp/stepDown methods
+			adjustNumericInputValue(numericInput);
+			const model=numericInputModels.get(numericInput);
+			model.value+=value*model.step;
+			//Will be automatically taken care of by the model with an event to the view
+			if (model.value<model.min) model.value=model.min;
+			else if (model.value>model.max) model.value=model.max;
+			numericInput.value=model.value;
+		}
+		
+		//Some browsers don't auto-adjust
+		function adjustNumericInputValue(numericInput)
+		{
+			const model=numericInputModels.get(numericInput);
+			//Will be automatically taken care of by the model with an event to the view
+			const value=Number.parseInt(numericInput.value,10);
+			if ((Number.isNaN(value))||(value<model.min)) model.value=model.min;	
+			else if (value>model.max) model.value=model.max;
+			else model.value=Math.floor(value/model.step)*model.step;
+			numericInput.value=model.value;
+		}
+		
+		function newtextFormSubmitted()
+		{
+			const numericInputs=document.getElementById("newtextForm").
+					querySelectorAll(":scope input[type='number']");
+			Array.prototype.forEach.call(numericInputs,function(numericInput)
+			{
+				if ((numericInput.validity.valid)&&(!numericInput.disabled))
+				{
+					/*Manual validation for browsers that don't support the 
+					  number type / range attributes*/
+					const model=numericInputModels.get(numericInput);
+					const value=Number.parseInt(numericInput.value,10);
+					if ((Number.isNaN(value))||(value<model.min)||(value>model.max))
+					{
+						numericInput.setCustomValidity("This field must contain a number in the range of " +
+								numericInput.min + " and " + numericInput.max);
+					}
+					else if (Math.floor(value/model.step)*model.step!==value)
+					{
+						numericInput.setCustomValidity("This field's value must conform to steps of " +
+								numericInput.step + " where the minimum is " + numericInput.min +
+								" and the maximum is " + numericInput.max);
+					}
+				}
+			});
+		}
+	</script>
 {% endblock %}

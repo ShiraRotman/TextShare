@@ -1,9 +1,35 @@
 
-const DEF_PORT=4096,MAX_TEXT_LENGTH=1024,KEY_CHARS_NUM=6;
+const DEF_PORT=4096,KEY_CHARS_NUM=6,MAX_NAME_LENGTH=15,MAX_QUANTITY_DIGITS=2;
+const MAX_UNLOGGED_TEXT_LENGTH=16384,MAX_LOGGED_TEXT_LENGTH=65536;
 const MIN_USERNAME_LENGTH=8,MAX_USERNAME_LENGTH=15;
 const MIN_PASSWORD_LENGTH=8,MAX_PASSWORD_LENGTH=25;
 const LOGIN_ERROR_TEXT="Incorrect username or password!";
 const SIGNUP_ERROR_TEXT="Username already exists!";
+
+const periodsData=
+{
+	"m": {max: 60, dateget: Date.prototype.getMinutes, dateset: Date.prototype.setMinutes},
+	"h": {max: 24, dateget: Date.prototype.getHours, dateset: Date.prototype.setHours},
+	"d": {max: 31, dateget: Date.prototype.getDate, dateset: Date.prototype.setDate},
+	"M": {max: 12, dateget: Date.prototype.getMonth, dateset: Date.prototype.setMonth},
+	"y": {max: 5, dateget: Date.prototype.getFullYear, dateset: Date.prototype.setFullYear},
+};
+
+const renderPeriods=(function()
+{
+	const tempdata=[
+	{value: "m", name: "Minute(s)"},{value: "h", name: "Hour(s)"},
+	{value: "d", name: "Day(s)"},{value: "M", name: "Month(s)"},
+	{value: "y", name: "Year(s)"}];
+	
+	const periods=new Array(tempdata.length);
+	for (let index=0;index<tempdata.length;index++)
+	{
+		periods[index]=tempdata[index];
+		periods[index].max=periodsData[periods[index].value].max;
+	}
+	return periods;
+})();
 
 const https=require("https"),crypto=require("crypto");
 const filesystem=require("fs"),pathutils=require("path");
@@ -86,11 +112,16 @@ server.use(express.urlencoded({extended: true}));
 server.use("/",express.static(`${viewsdir}/public`));
 server.use(passport.initialize(),passport.session());
 
-server.get("/",function(request,response) 
+server.get("/",function(request,response)
 {
-	const renderdata={maxlength: MAX_TEXT_LENGTH};
+	const renderdata={ maxNameLength: MAX_NAME_LENGTH };
 	if ((request.isAuthenticated)&&(request.isAuthenticated()))
+	{
 		renderdata.username=request.user.username;
+		renderdata.maxTextLength=MAX_LOGGED_TEXT_LENGTH;
+	}
+	else renderdata.maxTextLength=MAX_UNLOGGED_TEXT_LENGTH;
+	renderdata.periods=renderPeriods;
 	response.render("newtext.njk.html",renderdata);
 });
 
@@ -182,24 +213,85 @@ server.get(`/:addresskey([A-Za-z0-9=\\\+\\\/]{${KEY_CHARS_NUM}})`,function(reque
 
 server.post("/newtext",async function(request,response,next)
 {
-	let newtext=request.body.text;
+	let message=""; const newtext=request.body.text;
+	if ((!newtext)||(newtext.length===0)) message="No text was sent!\n";
+	else
+	{
+		const maxTextLength=((request.isAuthenticated)&&(request.isAuthenticated())?
+				MAX_LOGGED_TEXT_LENGTH:MAX_UNLOGGED_TEXT_LENGTH);
+		if (newtext.length>maxTextLength)
+			message=`You cannot share a text that's longer than ${maxTextLength}!\n`;
+	}
+	const nametitle=request.body.nametitle;
+	if ((nametitle)&&(nametitle.length>MAX_NAME_LENGTH))
+		message=message.concat(`The name/title cannot be longer than ${MAX_NAME_LENGTH}!\n`);
+	const format=request.body.format;
+	//For more valid values, use an object
+	if ((format)&&(format!=="N")&&(format!=="C")&&(format!=="B"))
+		message=message.concat("Invalid text format!\n");
+	const expiry=request.body.expiry;
+	if ((expiry)&&(expiry!=="N")&&(expiry!=="P"))
+		message=message.concat("Invalid expiry value!\n");
+	else if (expiry==="P")
+	{
+		var quantity=request.body.quantity,period=request.body.period;
+		if ((period)&&(!(period in periodsData)))
+			message=message.concat("Invalid period value!\n");
+		else if (!period) period="m";
+		if (quantity)
+		{
+			if (quantity.length>MAX_QUANTITY_DIGITS)
+				message=message.concat("Quantity value too long!\n");
+			else
+			{
+				quantity=Number.parseInt(quantity);
+				if (Number.isNaN(quantity))
+					message=message.concat("Quantity value must be numeric!\n");
+				else if (!Number.isInteger(quantity))
+					message=message.concat("Quantity value cannot be a fraction!\n");
+				else
+				{
+					const maxvalue=periodsData[period].max;
+					if ((quantity<1)||(quantity>maxvalue))
+						message=message.concat(`Quantity value must be between 1 and ${maxvalue}!\n`);
+				}
+			}
+		}
+		else quantity=1;
+	}
+	
 	//Bad Request status code (domain validation errors)
-	if ((!newtext)||(newtext.length===0)) 
-		response.status(400).send("No text was sent!");
-	else if (newtext.length>MAX_TEXT_LENGTH)
-		response.status(400).send(`You cannot share a text that's longer than ${MAX_TEXT_LENGTH}!`);
+	if (message.length>0) response.status(400).send(message);
 	else
 	{
 		//Based on the algorithm suggested on https://nlogn.in/designing-a-realtime-scalable-url-shortening-service-like-tiny-url/
-		const hashing=crypto.createHash("md5");
-		hashing.update(newtext);
-		const result=hashing.digest("base64");
-		let addresskey,found=false;
+		const hashing=crypto.createHash("md5"); hashing.update(newtext);
+		const settings=new Object();
+		if ((nametitle)&&(nametitle.length>0))
+		{ hashing.update(nametitle); settings.nametitle=nametitle; }
+		if (request.user) hashing.update(request.user.username);
+		if ((format)&&(format!=="N")) settings.format=format;
+		if ((expiry)&&(expiry!=="N"))
+		{
+			const periodData=periodsData[period]; 
+			settings.creationdate=new Date();
+			const expirydate=new Date(settings.creationdate.getTime());
+			periodData.dateset.call(expirydate,periodData.dateget.call(
+					expirydate)+quantity); settings.expirydate=expirydate;
+			settings.period=period; settings.quantity=quantity;
+		}
+		else settings.creationdate=new Date();
+		
+		const result=hashing.digest("base64"); let addresskey,found=false;
 		while (!found)
 		{
 			const startIndex=Math.floor(Math.random()*(result.length-KEY_CHARS_NUM+1));
 			addresskey=result.substring(startIndex,startIndex+KEY_CHARS_NUM);
-			try { await persist.insertText(addresskey,newtext); found=true; }
+			try 
+			{ 
+				await persist.insertText(addresskey,newtext,settings,request.user);
+				found=true;
+			}
 			catch(error) //If key already exists, choose another one
 			{ if (!(error instanceof persist.DataIntegrityError)) next(error); }
 		}

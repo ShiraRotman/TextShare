@@ -1,4 +1,8 @@
 .text-container { width: 97%; }
+.form-row { margin: 0.75rem 0 !important; }
+.form-control:disabled { -webkit-filter: opacity(25%); filter: opacity(25%); }
+select { padding-left: 0.25rem !important; }
+
 .link-button 
 {
 	font-weight: bold;
@@ -30,3 +34,24 @@
 #signupButton:hover,#signupButton:focus
 { background-color: lightgray !important; color: #17a2b8 !important; }
 
+#periodSelectSection { width: 20%; flex: 0 0 20%; padding-left: 5px; }
+#periodRadioSection { width: 10%; flex: 0 0 10%; padding-left: 5px; }
+
+@media screen and (min-width: 992px)
+{ 
+	#periodSelectSection { width: 10%; flex: 0 0 10%; }
+	#periodRadioSection { width: 5%; flex: 0 0 5%; }
+}
+
+input[type="number"]
+{
+	-webkit-appearance: textfield; -moz-appearance: textfield;
+	-ms-appearance: textfield; -o-appearance: textfield;
+	appearance: textfield;
+}
+
+input[type="number"]::-webkit-inner-spin-button,input[type="number"]::-webkit-outer-spin-button
+{ -webkit-appearance: none; }
+
+.step-button { padding: 0; border-width: 1px; }
+.step-button:disabled { -web-kit-filter: opacity(25%); filter: opacity(25%); }
