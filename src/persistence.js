@@ -1,9 +1,9 @@
 
-const mongo=require("mongodb").MongoClient;
+const mongo=require("mongodb");
 
 function connectToDB()
 { 
-	return mongo.connect("mongodb://appuser:pacman@localhost:16384/textshare",
+	return mongo.MongoClient.connect("mongodb://appuser:pacman@localhost:16384/textshare",
 			{ useUnifiedTopology: true });
 }
 
@@ -47,6 +47,12 @@ function insertText(textkey,textvalue,settings,username)
 				{
 					document={_id: textkey, text: textvalue};
 					Object.assign(document,settings);
+					for (let prop in document)
+					{
+						const value=document[prop];
+						if (value instanceof Date)
+							document[prop]=mongo.Long.fromNumber(value.getTime());
+					}
 					if (username) document.username=username;
 					const result=await collection.insertOne(document);
 					if (result.insertedCount===1) resolve();
