@@ -3,6 +3,8 @@
 .stats-row img + span { margin-left: 0.5rem; margin-right: 0.5rem; }
 select { padding-left: 0.25rem !important; }
 option:disabled { color: lightgray; }
+.form-row > div:first-child,.form-row > label:first-child 
+{ padding-left: 0 !important; }
 
 .form-control:disabled
 {
@@ -39,7 +41,7 @@ option:disabled { color: lightgray; }
 { 
 	color: white; 
 	background-color: limegreen; 
-	padding-bottom: 0.25rem !important; 
+	padding-bottom: 0 !important;
 }
 
 #newtextButton:hover,#newtextButton:focus { background-color: forestgreen; }
