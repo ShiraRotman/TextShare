@@ -291,10 +291,15 @@ server.post("/newtext",async function(request,response,next)
 		}
 		else settings.creationdate=new Date();
 		
-		const result=hashing.digest("base64"); let addresskey,found=false;
-		while (!found)
+		//Slashes change the URL's path
+		const result=hashing.digest("base64").replace("/","$");
+		let addresskey,found=false,times=0;
+		const keystartIndicesNum=result.length-KEY_CHARS_NUM+1;
+		/*Have to limit the number of trials to prevent DOS attacks using the 
+		  same data repeatedly*/
+		while ((!found)&&(times<Math.ceil(keystartIndicesNum*0.85)))
 		{
-			const startIndex=Math.floor(Math.random()*(result.length-KEY_CHARS_NUM+1));
+			const startIndex=Math.floor(Math.random()*keystartIndicesNum);
 			addresskey=result.substring(startIndex,startIndex+KEY_CHARS_NUM);
 			try 
 			{ 
@@ -303,9 +308,13 @@ server.post("/newtext",async function(request,response,next)
 				found=true;
 			}
 			catch(error) //If key already exists, choose another one
-			{ if (!(error instanceof persist.DataIntegrityError)) next(error); }
+			{ 
+				if (!(error instanceof persist.DataIntegrityError)) next(error);
+				else times++;
+			}
 		}
-		response.redirect(`/${addresskey}`);
+		if (found) response.redirect(`/${addresskey}`);
+		else next(new Error("Could not store the text!!!"));
 	}
 });
 
