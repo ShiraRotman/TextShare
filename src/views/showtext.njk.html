@@ -3,10 +3,43 @@
 	View Text
 {% endblock %}
 {% block contenttitle %}
-	Shared Text <!-- TODO: Name / Title -->
+	{{ nametitle if (nametitle) else "Untitled" }}
 {% endblock %}
 {% block content %}
-	<div class="mt-3 px-2 rounded text-container" style="border: 1px solid #D0D0D0; overflow: auto;">
-		{{ text }} <!-- TODO: Formatting -->
+	<div class="row stats-row">
+		<img src="textowner.svg" width="16" height="16"/>
+		<span>{{ textowner | upper if (textowner) else "A GUEST" }}</span>
+		<img src="calendar.svg" width="16" height="16"/>
+		<span id="creationDate"></span>
+		<!-- TODO: Add Views -->
+		<img src="expiration.svg" width="16" height="16"/>
+		<span id="expiryIndicator" title="When this text gets deleted">NEVER</span>
 	</div>
+	<div id="textSection" class="mt-3 px-2 rounded text-container" style="border: 1px solid #d0d0d0; overflow: auto;">
+		{% if (format==="C") %}
+			<pre><code>
+		{% endif %}
+		{{ text }}
+		{% if (format==="C") %}
+			</code></pre>
+		{% endif %}
+	</div>
+{% endblock %}
+{% block scripts %}
+	<script type="text/javascript">
+		window.addEventListener("load",function()
+		{
+			const creationDate=document.getElementById("creationDate");
+			let formatter=moment.utc({{ creationdate }});
+			creationDate.textContent=formatter.format("MMM Do, YYYY").toUpperCase();
+			creationDate.title=formatter.format("dddd Do of MMMM YYYY HH:mm:ss A UTC");
+			const expiryTimeStamp={{ expirydate if (expirydate) else 0 }};
+			if (expiryTimeStamp)
+			{
+				const expiryIndicator=document.getElementById("expiryIndicator");
+				formatter=moment.utc(expiryTimeStamp);
+				expiryIndicator.textContent=formatter.toNow(true).toUpperCase();
+			}
+		});
+	</script>
 {% endblock %}

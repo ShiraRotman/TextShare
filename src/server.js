@@ -198,7 +198,12 @@ server.get(`/:addresskey([A-Za-z0-9=\\\+\\\/]{${KEY_CHARS_NUM}})`,function(reque
 			if (!contentType) response.sendStatus(406); //Not Acceptable
 			else
 			{
-				const renderdata={text: dataObj.text};
+				const renderdata=dataObj;
+				if (renderdata.username)
+				{
+					renderdata.textowner=renderdata.username;
+					delete renderdata.username;
+				}
 				if (contentType==="text/html")
 				{
 					if ((request.isAuthenticated)&&(request.isAuthenticated()))
@@ -226,8 +231,12 @@ server.post("/newtext",async function(request,response,next)
 	if ((nametitle)&&(nametitle.length>MAX_NAME_LENGTH))
 		message=message.concat(`The name/title cannot be longer than ${MAX_NAME_LENGTH}!\n`);
 	const format=request.body.format;
-	//For more valid values, use an object
-	if ((format)&&(format!=="N")&&(format!=="C")&&(format!=="B"))
+	/*For supporting blockquotes, the text must be analyzed and broken into parts,
+	  which might be a lengthy process and thus requires partitioning the work 
+	  and optionally forcing a tighter constraint on the text's length.
+	  Performing the process on the client side is unfortunately problematic due to
+	  security issues. Therefore, it won't be implemented for now.*/
+	if ((format)&&(format!=="N")&&(format!=="C")) //&&(format!=="B"))
 		message=message.concat("Invalid text format!\n");
 	const expiry=request.body.expiry;
 	if ((expiry)&&(expiry!=="N")&&(expiry!=="P"))
@@ -289,7 +298,8 @@ server.post("/newtext",async function(request,response,next)
 			addresskey=result.substring(startIndex,startIndex+KEY_CHARS_NUM);
 			try 
 			{ 
-				await persist.insertText(addresskey,newtext,settings,request.user);
+				await persist.insertText(addresskey,newtext,settings,(request.
+						user)?request.user.username:null);
 				found=true;
 			}
 			catch(error) //If key already exists, choose another one

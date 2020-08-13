@@ -17,11 +17,11 @@
 			<label for="formatSelect" class="col-2 col-lg-1 col-form-label">
 				Formatting:
 			</label>
-			<div class="col-2 col-lg-1">
+			<div class="select-section">
 				<select id="formatSelect" name="format" class="form-control w-100">
 					<option value="N" selected>None</option>
 					<option value="C">Code</option>
-					<option value="B">Blockquote</option>
+					<option value="B" disabled>Blockquote</option> <!-- Unsupported for now -->
 				</select>
 			</div>
 		</div>
@@ -51,7 +51,7 @@
 					</button>
 				</div>
 			</div>
-			<div id="periodSelectSection">
+			<div class="select-section">
 				<select id="periodSelect" name="period" onchange="periodSelectChanged(event)"
 					class="form-control w-100 period-comp">
 					{% for period in periods %}

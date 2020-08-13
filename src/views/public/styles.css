@@ -1,7 +1,14 @@
 .text-container { width: 97%; }
 .form-row { margin: 0.75rem 0 !important; }
-.form-control:disabled { -webkit-filter: opacity(25%); filter: opacity(25%); }
+.stats-row img + span { margin-left: 0.5rem; margin-right: 0.5rem; }
 select { padding-left: 0.25rem !important; }
+option:disabled { color: lightgray; }
+
+.form-control:disabled
+{
+	color: lightgray;
+	background-color: unset !important;
+}
 
 .link-button 
 {
@@ -21,6 +28,13 @@ select { padding-left: 0.25rem !important; }
 	margin-right: auto;
 }
 
+.stats-row
+{
+	margin-left: 0 !important;
+	margin-right: 0 !important;
+	font-size: 0.75rem;
+}
+
 #newtextButton 
 { 
 	color: white; 
@@ -34,12 +48,12 @@ select { padding-left: 0.25rem !important; }
 #signupButton:hover,#signupButton:focus
 { background-color: lightgray !important; color: #17a2b8 !important; }
 
-#periodSelectSection { width: 20%; flex: 0 0 20%; padding-left: 5px; }
+.select-section { width: 20%; flex: 0 0 20%; padding-left: 5px; }
 #periodRadioSection { width: 10%; flex: 0 0 10%; padding-left: 5px; }
 
 @media screen and (min-width: 992px)
 { 
-	#periodSelectSection { width: 10%; flex: 0 0 10%; }
+	.select-section { width: 10%; flex: 0 0 10%; }
 	#periodRadioSection { width: 5%; flex: 0 0 5%; }
 }
 
