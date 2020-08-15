@@ -218,18 +218,19 @@ server.get(`/:addresskey([A-Za-z0-9=\\\+\\\/]{${KEY_CHARS_NUM}})`,function(reque
 
 server.post("/newtext",async function(request,response,next)
 {
-	let message=""; const newtext=request.body.text;
-	if ((!newtext)||(newtext.length===0)) message="No text was sent!\n";
+	const newtext=request.body.text;
+	if ((!newtext)||(newtext.length===0))
+		return response.status(400).send("No text was sent!");
 	else
 	{
 		const maxTextLength=((request.isAuthenticated)&&(request.isAuthenticated())?
 				MAX_LOGGED_TEXT_LENGTH:MAX_UNLOGGED_TEXT_LENGTH);
 		if (newtext.length>maxTextLength)
-			message=`You cannot share a text that's longer than ${maxTextLength}!\n`;
+			return response.status(400).send(`You cannot share a text that's longer than ${maxTextLength}`);
 	}
 	const nametitle=request.body.nametitle;
 	if ((nametitle)&&(nametitle.length>MAX_NAME_LENGTH))
-		message=message.concat(`The name/title cannot be longer than ${MAX_NAME_LENGTH}!\n`);
+		return response.status(400).send(`The name/title cannot be longer than ${MAX_NAME_LENGTH}!`);
 	const format=request.body.format;
 	/*For supporting blockquotes, the text must be analyzed and broken into parts,
 	  which might be a lengthy process and thus requires partitioning the work 
@@ -237,85 +238,80 @@ server.post("/newtext",async function(request,response,next)
 	  Performing the process on the client side is unfortunately problematic due to
 	  security issues. Therefore, it won't be implemented for now.*/
 	if ((format)&&(format!=="N")&&(format!=="C")) //&&(format!=="B"))
-		message=message.concat("Invalid text format!\n");
+		return response.status(400).send("Invalid text format!");
 	const expiry=request.body.expiry;
 	if ((expiry)&&(expiry!=="N")&&(expiry!=="P"))
-		message=message.concat("Invalid expiry value!\n");
+		return response.status(400).send("Invalid expiry value!");
 	else if (expiry==="P")
 	{
 		var quantity=request.body.quantity,period=request.body.period;
 		if ((period)&&(!(period in periodsData)))
-			message=message.concat("Invalid period value!\n");
+			return response.status(400).send("Invalid period value!");
 		else if (!period) period="m";
 		if (quantity)
 		{
 			if (quantity.length>MAX_QUANTITY_DIGITS)
-				message=message.concat("Quantity value too long!\n");
+				return response.status(400).send("Quantity value too long!");
 			else
 			{
 				quantity=Number.parseInt(quantity);
 				if (Number.isNaN(quantity))
-					message=message.concat("Quantity value must be numeric!\n");
+					return response.status(400).send("Quantity value must be numeric!");
 				else if (!Number.isInteger(quantity))
-					message=message.concat("Quantity value cannot be a fraction!\n");
+					return response.status("Quantity value cannot be a fraction!");
 				else
 				{
 					const maxvalue=periodsData[period].max;
 					if ((quantity<1)||(quantity>maxvalue))
-						message=message.concat(`Quantity value must be between 1 and ${maxvalue}!\n`);
+						return response.status(400).send(`Quantity value must be between 1 and ${maxvalue}!`);
 				}
 			}
 		}
 		else quantity=1;
 	}
 	
-	//Bad Request status code (domain validation errors)
-	if (message.length>0) response.status(400).send(message);
-	else
+	//Based on the algorithm suggested on https://nlogn.in/designing-a-realtime-scalable-url-shortening-service-like-tiny-url/
+	const hashing=crypto.createHash("md5"); hashing.update(newtext);
+	const settings=new Object();
+	if ((nametitle)&&(nametitle.length>0))
+	{ hashing.update(nametitle); settings.nametitle=nametitle; }
+	if (request.user) hashing.update(request.user.username);
+	if ((format)&&(format!=="N")) settings.format=format;
+	if ((expiry)&&(expiry!=="N"))
 	{
-		//Based on the algorithm suggested on https://nlogn.in/designing-a-realtime-scalable-url-shortening-service-like-tiny-url/
-		const hashing=crypto.createHash("md5"); hashing.update(newtext);
-		const settings=new Object();
-		if ((nametitle)&&(nametitle.length>0))
-		{ hashing.update(nametitle); settings.nametitle=nametitle; }
-		if (request.user) hashing.update(request.user.username);
-		if ((format)&&(format!=="N")) settings.format=format;
-		if ((expiry)&&(expiry!=="N"))
-		{
-			const periodData=periodsData[period]; 
-			settings.creationdate=new Date();
-			const expirydate=new Date(settings.creationdate.getTime());
-			periodData.dateset.call(expirydate,periodData.dateget.call(
-					expirydate)+quantity); settings.expirydate=expirydate;
-			settings.period=period; settings.quantity=quantity;
-		}
-		else settings.creationdate=new Date();
-		
-		//Slashes change the URL's path
-		const result=hashing.digest("base64").replace("/","$");
-		let addresskey,found=false,times=0;
-		const keystartIndicesNum=result.length-KEY_CHARS_NUM+1;
-		/*Have to limit the number of trials to prevent DOS attacks using the 
-		  same data repeatedly*/
-		while ((!found)&&(times<Math.ceil(keystartIndicesNum*0.85)))
-		{
-			const startIndex=Math.floor(Math.random()*keystartIndicesNum);
-			addresskey=result.substring(startIndex,startIndex+KEY_CHARS_NUM);
-			try 
-			{ 
-				await persist.insertText(addresskey,newtext,settings,(request.
-						user)?request.user.username:null);
-				found=true;
-			}
-			catch(error) //If key already exists, choose another one
-			{ 
-				if (!(error instanceof persist.DataIntegrityError)) next(error);
-				else times++;
-			}
-		}
-		if (found) response.redirect(`/${addresskey}`);
-		else next(new Error("Could not store the text!!!"));
+		const periodData=periodsData[period]; 
+		settings.creationdate=new Date();
+		const expirydate=new Date(settings.creationdate.getTime());
+		periodData.dateset.call(expirydate,periodData.dateget.call(
+				expirydate)+quantity); settings.expirydate=expirydate;
+		settings.period=period; settings.quantity=quantity;
 	}
+	else settings.creationdate=new Date();
+	
+	//Slashes change the URL's path
+	const result=hashing.digest("base64").replace("/","$");
+	let addresskey,found=false,times=0;
+	const keystartIndicesNum=result.length-KEY_CHARS_NUM+1;
+	/*Have to limit the number of trials to prevent DOS attacks using the 
+	  same data repeatedly*/
+	while ((!found)&&(times<Math.ceil(keystartIndicesNum*0.85)))
+	{
+		const startIndex=Math.floor(Math.random()*keystartIndicesNum);
+		addresskey=result.substring(startIndex,startIndex+KEY_CHARS_NUM);
+		try 
+		{ 
+			await persist.insertText(addresskey,newtext,settings,(request.
+					user)?request.user.username:null);
+			found=true;
+		}
+		catch(error) //If key already exists, choose another one
+		{ 
+			if (!(error instanceof persist.DataIntegrityError)) next(error);
+			else times++;
+		}
+	}
+	if (found) response.redirect(`/${addresskey}`);
+	else next(new Error("Could not store the text!!!"));
 });
 
 let port=process.env.NODE_PORT; if (!port) port=DEF_PORT;
