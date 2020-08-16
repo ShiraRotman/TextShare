@@ -27,3 +27,10 @@ db.grantPrivilegesToRole("approle",
 	resource: { db: "textshare", collection: "users"},
 	actions: ["insert"]
 }])
+
+db.stored_texts.createIndex({username: 1, creationdate: -1},
+{
+	name: "texts_by_user_and_date", unique: true,
+	partialFilterExpression: {username: {$exists: true}}
+})
+	

@@ -1,0 +1,137 @@
+{% extends "sitepage.njk.html" %}
+{% block header %}
+	<style type="text/css">
+		@media screen and (max-width: 768px)
+		{ .table-responsive-md { width: 100% !important; }}
+	</style>
+{% endblock %}
+{% block pagetitle %}
+	List of Texts
+{% endblock %}
+{% block contenttitle %}
+	{{ listowner }}'s Texts
+{% endblock %}
+{% block content %}
+	<!-- TODO: Add a stats row with location, views, user's join date -->
+	<table id="textlistTable" class="table table-striped w-75 table-responsive-md mt-3"
+		style="table-layout: fixed;">
+		<thead>
+			<tr>
+				<th scope="col" style="min-width: 200px;">Name / Title</th>
+				<th scope="col">Created</th>
+				<th scope="col">Expires</th>
+				<!-- TODO: Add views -->
+				{% if (listowner===username) %}
+				<th scope="col"></th>
+				{% endif %}
+			</tr>
+		</thead>
+		{% if textlist and textlist.length>0 %}
+		<tbody>
+		{% for textitem in textlist %}
+			<tr>
+				<td>
+					<a href="../{{ textitem.addresskey }}">
+						{{ textitem.nametitle if (textitem.nametitle) else "Untitled" }}
+					</a>
+				</td>
+				<td data-moment="{{ textitem.creationdate }}"></td>
+				<td data-moment="{{ textitem.expirydate }}">Never</td>
+				{% if (listowner===username) %}
+				<td data-address="{{ textitem.addresskey }}">
+					<ul class="d-flex justify-content-end" style="list-style: none">
+						<li><img src="editing.svg" width="24" height="24"/></li>
+						<li><img src="delete.svg" width="32" height="32"/></li>
+					</ul>
+				</td>
+				{% endif %}
+			</tr>
+		{% endfor %}
+		</tbody>
+		{% endif %}
+	</table>
+	<p id="statusMessage" class="w-75 text-center align-middle text-info" 
+		style="height: 200px; display: {{ 'none' if (textlist and textlist.length>0) else 'block' }};">
+		{{ "You have" if (listowner===username) else "This user has" }} no texts
+	</p>
+	
+	<!-- {% if textlist and textlist.length>0 %}
+	<div id="navigationSection" class="d-flex w-75 mx-0"> <!-- justify-content-between
+		<div class="d-flex">
+			<label for="pagesizeSelect" class="col-form-label mr-2">Show</label>
+			<select id="pagesizeSelect" class="form-control text-center" style="min-width: 60px;"></select>
+			<label for="pagesizeSelect" class="col-form-label ml-2 text-nowrap">rows per page</label>
+		</div>
+		<div class="d-flex ml-3"> <!-- justify-content-end">
+			<nav>
+				<ul class="pagination">
+					<!-- Due to issues with pagination in Mongo, skipping pages is not supported
+					<li class="page-item">
+						<button id="previousButton" type="button" class="page-link" title="Previous page">
+							&lt;&lt;
+						</button>
+					</li>
+					<li class="page-item">
+						<button id="nextButton" type="button" class="page-link" title="Next page">
+							&gt;&gt;
+						</button>
+					</li>
+				</ul>
+			</nav>
+		</div>			
+	</div>
+	{% endif %} -->
+{% endblock %}
+
+{% block scripts %}
+	<script type="text/javascript">
+		let lastdate;
+		window.addEventListener("load",function()
+		{
+			if (Number.parseInt===undefined) Number.parseInt=window.parseInt;
+			const textlistTable=document.getElementById("textlistTable");
+			const tableBody=textlistTable.querySelector(":scope tbody");
+			let contentElement;
+			if (tableBody!==null)
+			{
+				const CREATION_DATE_COL_INDEX=1,EXPIRATION_DATE_COL_INDEX=2;
+				Array.prototype.forEach.call(tableBody.children,function(tableRow,index)
+				{
+					const columns=tableRow.children;
+					let timestamp=columns[CREATION_DATE_COL_INDEX].getAttribute("data-moment");
+					if (index==0) lastdate=timestamp;
+					let formatted=moment.utc(Number.parseInt(timestamp)).
+							format("MMM Do, YYYY");
+					columns[CREATION_DATE_COL_INDEX].textContent=formatted;
+					columns[CREATION_DATE_COL_INDEX].removeAttribute("data-moment");
+					timestamp=columns[EXPIRATION_DATE_COL_INDEX].getAttribute("data-moment");
+					if (timestamp!=="")
+					{
+						formatted=moment.utc(Number.parseInt(timestamp)).toNow(true);
+						columns[EXPIRATION_DATE_COL_INDEX].textContent=formatted;
+						columns[EXPIRATION_DATE_COL_INDEX].removeAttribute("date-moment");
+					}
+				});
+				/*const pagesizeSelect=document.getElementById("pagesizeSelect");
+				for (let pagesize={{ minPageRows }};pagesize<={{ maxPageRows }};pagesize+=5)
+				{
+					const option=document.createElement("option");
+					option.value=pagesize; option.text=pagesize;
+					pagesizeSelect.appendChild(option);
+				}
+				pagesizeSelect.selectedIndex=0;
+				contentElement=document.getElementById("navigationSection");*/
+			}
+			else contentElement=document.getElementById("statusMessage");
+			if (contentElement)
+			{
+				const actualWidth=textlistTable.getBoundingClientRect().width;
+				contentElement.style.width=actualWidth;
+				const fractionWidth=actualWidth/textlistTable.parentElement.
+						getBoundingClientRect().width;
+				if (fractionWidth>0.75)
+					contentElement.classList.replace("w-75","w-100");
+			}
+		});
+	</script>
+{% endblock %}

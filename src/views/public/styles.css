@@ -22,12 +22,17 @@ option:disabled { color: lightgray; }
 
 .content-area
 {
-	width: 80%;
+	width: 90%;
 	background-color: white;
 	border-radius: 5px;
-	padding: 1.5rem;
+	padding: 1.5rem 1rem;
 	margin-left: auto;
 	margin-right: auto;
+}
+
+@media screen and (min-width: 768px)
+{
+	.content-area { width: 80%; padding-left: 1.5rem; padding-right: 1.5rem; }
 }
 
 .stats-row

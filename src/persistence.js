@@ -20,8 +20,7 @@ function findDocument(collection,dockey)
 						findOne({_id: dockey});
 				resolve(document);
 			}
-			catch(error) { reject(error); }
-			finally { client.close().catch(()=>{ })}
+			finally { client.close().catch(()=>{ }); }
 		}
 		catch(error) { reject(error); }
 	});
@@ -29,6 +28,66 @@ function findDocument(collection,dockey)
 
 function findUser(username) { return findDocument("users",username); }
 function findText(textkey) { return findDocument("stored_texts",textkey); }
+
+function retrieveTexts(username)
+{
+	return new Promise(async function(resolve,reject)
+	{
+		try
+		{
+			const client=await connectToDB();
+			try
+			{
+				const cursor=client.db().collection("stored_texts").find(
+				{username: username},
+				{
+					sort: {creationdate: -1}, hint: "texts_by_user_and_date",
+					projection: {_id: 1, nametitle: 1, creationdate: 1, expirydate: 1}
+				});
+				let documents;
+				try { documents=await cursor.toArray(); resolve(documents); }
+				finally { cursor.close().catch(()=>{ }); }
+			}
+			finally { client.close().catch(()=>{ }); }
+		}
+		catch(error) { reject(error); }
+	});
+}
+
+//Not used for now unfortunately
+const MIN_LIMIT=10,MAX_LIMIT=25;
+function retrieveTextsByRange(username,maxdate,limit,backwards)
+{
+	if (!limit) limit=MIN_LIMIT;
+	else if ((limit<MIN_LIMIT)||(limit>MAX_LIMIT))
+		throw new RangeError(`The limit on the number of documents to retrieve must be between ${MIN_LIMIT} and ${MAX_LIMIT}!`);
+	if (!maxdate) maxdate=(backwards?0:Date.now());
+	else if (maxdate instanceof Date) maxdate=maxdate.getTime();
+	const condition=(backwards?{$gt: maxdate}:{$lt: maxdate});
+	
+	return new Promise(async function(resolve,reject)
+	{
+		try
+		{
+			const client=await connectToDB();
+			try
+			{
+				const cursor=client.db().collection("stored_texts").find(
+				{username: username, creationdate: condition},
+				{
+					limit: limit, sort: {creationdate: -1},
+					projection: {_id: 1, nametitle: 1, creationdate: 1, expirydate: 1},
+					hint: "texts_by_user_and_date"
+				});
+				let documents;
+				try { documents=await cursor.toArray(); resolve(documents); }
+				finally { cursor.close().catch(()=>{ }); }
+			}
+			finally { client.close().catch(()=>{ }); }
+		}
+		catch(error) { reject(error); }
+	});
+}
 
 function insertText(textkey,textvalue,settings,username)
 {
@@ -59,8 +118,7 @@ function insertText(textkey,textvalue,settings,username)
 					else reject(new Error("Unexpected error! Text hasn't been inserted!"));
 				}
 			}
-			catch(error) { reject(error); }
-			finally { client.close().catch(()=>{ })}
+			finally { client.close().catch(()=>{ }); }
 		}
 		catch(error) { reject(error); };
 	});
@@ -87,8 +145,7 @@ function insertUser(username,password,salt)
 					else reject(new Error("Unexpected error! User hasn't been added!"));
 				}
 			}
-			catch(error) { reject(error); }
-			finally { client.close().catch(()=>{ })}
+			finally { client.close().catch(()=>{ }); }
 		}
 		catch(error) { reject(error); }
 	});
@@ -105,5 +162,7 @@ module.exports=
 {
 	DataIntegrityError: DataIntegrityError,
 	findUserByName: findUser, insertUser: insertUser,
-	findTextByKey: findText, insertText: insertText
+	findTextByKey: findText, insertText: insertText,
+	retrieveTextsForUser: retrieveTexts,
+	MIN_RETRIEVAL_LIMIT: MIN_LIMIT, MAX_RETRIEVAL_LIMIT: MAX_LIMIT
 };

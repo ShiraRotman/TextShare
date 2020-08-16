@@ -115,6 +115,7 @@ const viewsdir=pathutils.join(__dirname,"views");
 renderer.configure(viewsdir,{ autoescape: true, express: server });
 server.use(express.urlencoded({extended: true}));
 server.use("/",express.static(`${viewsdir}/public`));
+server.use("/user",express.static(`${viewsdir}/public`));
 server.use(passport.initialize(),passport.session());
 
 server.get("/",function(request,response)
@@ -226,6 +227,62 @@ server.get(`/:addresskey([A-Za-z0-9=\\\+\\\/]{${KEY_CHARS_NUM}})`,function(reque
 		else response.sendStatus(404);
 	}).catch(next);
 });
+
+server.get(`/user/:username([^\\s\\\/]{${MIN_USERNAME_LENGTH},${MAX_USERNAME_LENGTH}})`,
+		async function(request,response,next)
+{
+	const username=request.params.username;
+	try 
+	{
+		const userdata=await persist.findUserByName(username);
+		if (!userdata) response.sendStatus(404);
+		else
+		{
+			const textlist=await persist.retrieveTextsForUser(username);
+			for (let textitem of textlist)
+			{
+				textitem.addresskey=textitem._id;
+				delete textitem._id;
+			}
+			const renderdata=
+			{
+				minPageRows: persist.MIN_RETRIEVAL_LIMIT,
+				maxPageRows: persist.MAX_RETRIEVAL_LIMIT,
+				textlist: textlist, listowner: username
+			};
+			if ((request.isAuthenticated)&&(request.isAuthenticated()))
+				renderdata.username=request.user.username;
+			response.render("listoftexts.njk.html",renderdata);
+		}
+	}
+	catch(error) { next(error); }
+});
+
+/*Have to comment this out for now since the template engine doesn't work 
+  with paging :(. TODO: Upgrade to a data binding framework.*/
+/*server.get("/fetchlist",function(request,response,next)
+{
+	const listowner=request.query.listowner;
+	if (!listowner) return response.status(400).send("Missing list owner!");
+	else if ((typeof(listowner)!=="string")||(!usernameRegExp.test(listowner)))
+		return response.status(400).send("Invalid list owner!");
+	const maxdate=request.query.lastdate;
+	if ((maxdate)&&(typeof(maxdate)!=="number"))
+		return response.status(400).send("'maxdate' must be a timestamp!");
+	const pagesize=request.query.pagesize;
+	if ((pagesize)&&(typeof(pagesize)!=="number"))
+		return response.status(400).send("'pagesize' must be a number!");
+	const backwards=request.query.backwards;
+	if ((backwards)&&(typeof(backwards)!=="boolean"))
+		return response.status(400).send("'backwards' must be boolean!");
+	
+	persist.retrieveTextsForUser(listowner,maxdate,pagesize,backwards).
+			then(function(datalist)
+	{
+		response.set("Content-Type","application/json");
+		response.status(200).send({textlist: datalist});
+	}).catch(function(error) { next(error); });
+}*/
 
 server.post("/newtext",async function(request,response,next)
 {
