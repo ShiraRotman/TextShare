@@ -3,8 +3,13 @@ const DEF_PORT=4096,KEY_CHARS_NUM=6,MAX_NAME_LENGTH=15,MAX_QUANTITY_DIGITS=2;
 const MAX_UNLOGGED_TEXT_LENGTH=16384,MAX_LOGGED_TEXT_LENGTH=65536;
 const MIN_USERNAME_LENGTH=8,MAX_USERNAME_LENGTH=15;
 const MIN_PASSWORD_LENGTH=8,MAX_PASSWORD_LENGTH=25;
+
 const LOGIN_ERROR_TEXT="Incorrect username or password!";
 const SIGNUP_ERROR_TEXT="Username already exists!";
+
+const usernamePattern="^(?:\\p{L}|\\p{M}|\\p{N}|\\p{Pd}|\\p{Pc})+$";
+const usernameRegExp=new RegExp(usernamePattern,"u");
+const userRenderPattern=usernamePattern.replace("\\\\","\\");
 
 const periodsData=
 {
@@ -139,6 +144,7 @@ function serveSignLogin(signup,request,response)
 	if ((request.isAuthenticated)&&(request.isAuthenticated())) request.logout();
 	const renderdata=
 	{
+		usernamePattern: userRenderPattern,
 		minUsernameLength: MIN_USERNAME_LENGTH,
 		maxUsernameLength: MAX_USERNAME_LENGTH,
 		minPasswordLength: MIN_PASSWORD_LENGTH,
@@ -183,6 +189,11 @@ function checkCredentials(username,password)
 		return "Username is either too short or too long!";
 	else if ((password.length<MIN_PASSWORD_LENGTH)||(password.length>MAX_PASSWORD_LENGTH))
 		return "Password is either too short or too long!";
+	else if (!usernameRegExp.test(username))
+	{
+		return "Password contains (an) invalid character(s)! Please don't use " + 
+				"spaces or special characters!";
+	}
 	else return null;
 }
 
