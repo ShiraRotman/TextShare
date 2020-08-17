@@ -54,33 +54,6 @@
 		style="height: 200px; display: {{ 'none' if (textlist and textlist.length>0) else 'block' }};">
 		{{ "You have" if (listowner===username) else "This user has" }} no texts
 	</p>
-	
-	<!-- {% if textlist and textlist.length>0 %}
-	<div id="navigationSection" class="d-flex w-75 mx-0"> <!-- justify-content-between
-		<div class="d-flex">
-			<label for="pagesizeSelect" class="col-form-label mr-2">Show</label>
-			<select id="pagesizeSelect" class="form-control text-center" style="min-width: 60px;"></select>
-			<label for="pagesizeSelect" class="col-form-label ml-2 text-nowrap">rows per page</label>
-		</div>
-		<div class="d-flex ml-3"> <!-- justify-content-end">
-			<nav>
-				<ul class="pagination">
-					<!-- Due to issues with pagination in Mongo, skipping pages is not supported
-					<li class="page-item">
-						<button id="previousButton" type="button" class="page-link" title="Previous page">
-							&lt;&lt;
-						</button>
-					</li>
-					<li class="page-item">
-						<button id="nextButton" type="button" class="page-link" title="Next page">
-							&gt;&gt;
-						</button>
-					</li>
-				</ul>
-			</nav>
-		</div>			
-	</div>
-	{% endif %} -->
 {% endblock %}
 
 {% block scripts %}
@@ -112,15 +85,7 @@
 						columns[EXPIRATION_DATE_COL_INDEX].removeAttribute("date-moment");
 					}
 				});
-				/*const pagesizeSelect=document.getElementById("pagesizeSelect");
-				for (let pagesize={{ minPageRows }};pagesize<={{ maxPageRows }};pagesize+=5)
-				{
-					const option=document.createElement("option");
-					option.value=pagesize; option.text=pagesize;
-					pagesizeSelect.appendChild(option);
-				}
-				pagesizeSelect.selectedIndex=0;
-				contentElement=document.getElementById("navigationSection");*/
+				//contentElement=document.getElementById("navigationSection");
 			}
 			else contentElement=document.getElementById("statusMessage");
 			if (contentElement)

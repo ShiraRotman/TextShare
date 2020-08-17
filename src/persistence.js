@@ -54,41 +54,6 @@ function retrieveTexts(username)
 	});
 }
 
-//Not used for now unfortunately
-const MIN_LIMIT=10,MAX_LIMIT=25;
-function retrieveTextsByRange(username,maxdate,limit,backwards)
-{
-	if (!limit) limit=MIN_LIMIT;
-	else if ((limit<MIN_LIMIT)||(limit>MAX_LIMIT))
-		throw new RangeError(`The limit on the number of documents to retrieve must be between ${MIN_LIMIT} and ${MAX_LIMIT}!`);
-	if (!maxdate) maxdate=(backwards?0:Date.now());
-	else if (maxdate instanceof Date) maxdate=maxdate.getTime();
-	const condition=(backwards?{$gt: maxdate}:{$lt: maxdate});
-	
-	return new Promise(async function(resolve,reject)
-	{
-		try
-		{
-			const client=await connectToDB();
-			try
-			{
-				const cursor=client.db().collection("stored_texts").find(
-				{username: username, creationdate: condition},
-				{
-					limit: limit, sort: {creationdate: -1},
-					projection: {_id: 1, nametitle: 1, creationdate: 1, expirydate: 1},
-					hint: "texts_by_user_and_date"
-				});
-				let documents;
-				try { documents=await cursor.toArray(); resolve(documents); }
-				finally { cursor.close().catch(()=>{ }); }
-			}
-			finally { client.close().catch(()=>{ }); }
-		}
-		catch(error) { reject(error); }
-	});
-}
-
 function insertText(textkey,textvalue,settings,username)
 {
 	return new Promise(async function(resolve,reject)
@@ -163,6 +128,5 @@ module.exports=
 	DataIntegrityError: DataIntegrityError,
 	findUserByName: findUser, insertUser: insertUser,
 	findTextByKey: findText, insertText: insertText,
-	retrieveTextsForUser: retrieveTexts,
-	MIN_RETRIEVAL_LIMIT: MIN_LIMIT, MAX_RETRIEVAL_LIMIT: MAX_LIMIT
+	retrieveTextsForUser: retrieveTexts
 };

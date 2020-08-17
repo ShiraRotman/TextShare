@@ -258,32 +258,6 @@ server.get(`/user/:username([^\\s\\\/]{${MIN_USERNAME_LENGTH},${MAX_USERNAME_LEN
 	catch(error) { next(error); }
 });
 
-/*Have to comment this out for now since the template engine doesn't work 
-  with paging :(. TODO: Upgrade to a data binding framework.*/
-/*server.get("/fetchlist",function(request,response,next)
-{
-	const listowner=request.query.listowner;
-	if (!listowner) return response.status(400).send("Missing list owner!");
-	else if ((typeof(listowner)!=="string")||(!usernameRegExp.test(listowner)))
-		return response.status(400).send("Invalid list owner!");
-	const maxdate=request.query.lastdate;
-	if ((maxdate)&&(typeof(maxdate)!=="number"))
-		return response.status(400).send("'maxdate' must be a timestamp!");
-	const pagesize=request.query.pagesize;
-	if ((pagesize)&&(typeof(pagesize)!=="number"))
-		return response.status(400).send("'pagesize' must be a number!");
-	const backwards=request.query.backwards;
-	if ((backwards)&&(typeof(backwards)!=="boolean"))
-		return response.status(400).send("'backwards' must be boolean!");
-	
-	persist.retrieveTextsForUser(listowner,maxdate,pagesize,backwards).
-			then(function(datalist)
-	{
-		response.set("Content-Type","application/json");
-		response.status(200).send({textlist: datalist});
-	}).catch(function(error) { next(error); });
-}*/
-
 server.post("/newtext",async function(request,response,next)
 {
 	const newtext=request.body.text;
