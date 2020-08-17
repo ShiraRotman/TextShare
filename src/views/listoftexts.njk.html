@@ -38,11 +38,12 @@
 				<td data-moment="{{ textitem.creationdate }}"></td>
 				<td data-moment="{{ textitem.expirydate }}">Never</td>
 				{% if (listowner===username) %}
-				<td data-address="{{ textitem.addresskey }}">
-					<ul class="d-flex justify-content-end" style="list-style: none">
-						<li><img src="editing.svg" width="24" height="24"/></li>
-						<li><img src="delete.svg" width="32" height="32"/></li>
-					</ul>
+				<td class="d-flex justify-content-end">
+					<img src="editing.svg" width="24" height="24" title="Edit Text"
+						class="image-button"/>
+					<img src="delete.svg" width="24" height="24" class="image-button"
+						data-address="{{ textitem.addresskey }}" title="Delete Text"
+						onclick="deleteImageClicked(event)"/>
 				</td>
 				{% endif %}
 			</tr>
@@ -54,14 +55,28 @@
 		style="height: 200px; display: {{ 'none' if (textlist and textlist.length>0) else 'block' }};">
 		{{ "You have" if (listowner===username) else "This user has" }} no texts
 	</p>
+	<!-- No pagination UI for now... -->
+	<div class="d-flex justify-content-center">
+		<div id="toastMessage" class="toast">
+			<div class="toast-header">
+				<strong class="mr-auto"></strong>
+				<button type="button" class="ml-2 close" data-dismiss="toast">
+					<span>&times;</span>
+				</button>
+			</div>
+			<div class="toast-body"></div>
+		</div>
+	</div>
 {% endblock %}
 
 {% block scripts %}
 	<script type="text/javascript">
-		let lastdate;
 		window.addEventListener("load",function()
 		{
 			if (Number.parseInt===undefined) Number.parseInt=window.parseInt;
+			//Using a bit of jQuery just for the toast component
+			$(".toast").toast({delay: 2000});
+			
 			const textlistTable=document.getElementById("textlistTable");
 			const tableBody=textlistTable.querySelector(":scope tbody");
 			let contentElement;
@@ -72,7 +87,6 @@
 				{
 					const columns=tableRow.children;
 					let timestamp=columns[CREATION_DATE_COL_INDEX].getAttribute("data-moment");
-					if (index==0) lastdate=timestamp;
 					let formatted=moment.utc(Number.parseInt(timestamp)).
 							format("MMM Do, YYYY");
 					columns[CREATION_DATE_COL_INDEX].textContent=formatted;
@@ -98,5 +112,38 @@
 					contentElement.classList.replace("w-75","w-100");
 			}
 		});
+		
+		function deleteImageClicked(event)
+		{
+			if (confirm("Are you sure you want to delete this text?"))
+			{
+				const addresskey=event.target.getAttribute("data-address");
+				fetch(`../delete/${addresskey}`,{method: "DELETE"}).then(function(response)
+				{
+					if (response.ok)
+					{
+						let element=event.target.parentElement;
+						while (element.localName!=="tr")
+							element=element.parentElement;
+						if (element.remove) element.remove();
+						else element.parentElement.removeChild(element);
+						showToast("Deletion Succeeded!","Your text has been deleted!");
+					}
+					else throw new Error(response.statusText);					
+				}).catch(function(error)
+				{ 
+					showToast("Deletion Failed!","Couldn't delete your text: " + 
+							error.message);
+				});
+			}
+		}
+		
+		function showToast(header,body)
+		{
+			const toastMessage=document.getElementById("toastMessage");
+			toastMessage.querySelector(":scope .toast-header").textContent=header;
+			toastMessage.querySelector(":scope .toast-body").textContent=body;
+			$("#toastMessage").toast("show");
+		}
 	</script>
 {% endblock %}

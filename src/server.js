@@ -7,6 +7,7 @@ const MIN_PASSWORD_LENGTH=8,MAX_PASSWORD_LENGTH=25;
 const LOGIN_ERROR_TEXT="Incorrect username or password!";
 const SIGNUP_ERROR_TEXT="Username already exists!";
 
+const addresskeyPattern=`[A-Za-z0-9=$\\\+]{${KEY_CHARS_NUM}}`;
 const usernamePattern="^(?:\\p{L}|\\p{M}|\\p{N}|\\p{Pd}|\\p{Pc})+$";
 const usernameRegExp=new RegExp(usernamePattern,"u");
 const userRenderPattern=usernamePattern.replace("\\\\","\\");
@@ -198,7 +199,7 @@ function checkCredentials(username,password)
 	else return null;
 }
 
-server.get(`/:addresskey([A-Za-z0-9=\\\+\\\/]{${KEY_CHARS_NUM}})`,function(request,response,next)
+server.get(`/:addresskey(${addresskeyPattern})`,function(request,response,next)
 {
 	const addresskey=request.params.addresskey;
 	persist.findTextByKey(addresskey).then(function(dataObj)
@@ -226,6 +227,23 @@ server.get(`/:addresskey([A-Za-z0-9=\\\+\\\/]{${KEY_CHARS_NUM}})`,function(reque
 		}
 		else response.sendStatus(404);
 	}).catch(next);
+});
+
+server.delete(`/delete/:addresskey(${addresskeyPattern})`,async function(request,response,next)
+{
+	const addresskey=request.params.addresskey;
+	try
+	{
+		const dataObj=await persist.findTextByKey(addresskey);
+		if (!dataObj) response.sendStatus(404);
+		else if ((!dataObj.username)||(dataObj.username!==request.user.username))
+		{
+			response.set("WWW-Authenticate","Form");
+			response.status(401).send("You are not authorized to delete this text!");
+		}
+		else { await persist.deleteText(addresskey); response.sendStatus(200); }
+	}
+	catch(error) { next(error); }
 });
 
 server.get(`/user/:username([^\\s\\\/]{${MIN_USERNAME_LENGTH},${MAX_USERNAME_LENGTH}})`,

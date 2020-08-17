@@ -89,6 +89,26 @@ function insertText(textkey,textvalue,settings,username)
 	});
 }
 
+function deleteText(textkey)
+{
+	return new Promise(async function(resolve,reject)
+	{
+		try
+		{
+			const client=await connectToDB();
+			const collection=client.db().collection("stored_texts");
+			try
+			{
+				const result=await collection.deleteOne({_id: textkey});
+				if (result.deletedCount===1) resolve();
+				else reject(new Error("Text does not exist or hasn't been deleted!"));
+			}
+			finally { client.close().catch(()=>{ }); }
+		}
+		catch(error) { reject(error); }
+	});
+}
+
 function insertUser(username,password,salt)
 {
 	return new Promise(async function(resolve,reject)
@@ -127,6 +147,6 @@ module.exports=
 {
 	DataIntegrityError: DataIntegrityError,
 	findUserByName: findUser, insertUser: insertUser,
-	findTextByKey: findText, insertText: insertText,
-	retrieveTextsForUser: retrieveTexts
+	findTextByKey: findText, retrieveTextsForUser: retrieveTexts,
+	insertText: insertText, deleteText: deleteText
 };
