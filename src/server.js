@@ -187,13 +187,18 @@ function checkCredentials(username,password)
 {
 	if (!username || !password ||(username.length===0)||(password.length===0))
 		return "Missing username and/or password!";
-	else if ((username.length<MIN_USERNAME_LENGTH)||(username.length>MAX_USERNAME_LENGTH))
-		return "Username is either too short or too long!";
 	else if ((password.length<MIN_PASSWORD_LENGTH)||(password.length>MAX_PASSWORD_LENGTH))
 		return "Password is either too short or too long!";
+	else return checkUserName(username);
+}
+
+function checkUserName(username)
+{
+	if ((username.length<MIN_USERNAME_LENGTH)||(username.length>MAX_USERNAME_LENGTH))
+		return "Username is either too short or too long!";
 	else if (!usernameRegExp.test(username))
 	{
-		return "Password contains (an) invalid character(s)! Please don't use " + 
+		return "User name contains (an) invalid character(s)! Please don't use " + 
 				"spaces or special characters!";
 	}
 	else return null;
@@ -246,10 +251,10 @@ server.delete(`/delete/:addresskey(${addresskeyPattern})`,async function(request
 	catch(error) { next(error); }
 });
 
-server.get(`/user/:username([^\\s\\\/]{${MIN_USERNAME_LENGTH},${MAX_USERNAME_LENGTH}})`,
-		async function(request,response,next)
+server.get("/user/:username",async function(request,response,next)
 {
 	const username=request.params.username;
+	if ((!username)||(checkUserName(username)!==null)) return response.sendStatus(404);
 	try 
 	{
 		const userdata=await persist.findUserByName(username);
