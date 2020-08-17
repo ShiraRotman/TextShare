@@ -1,4 +1,4 @@
-use textshare
+db=db.getSiblingDB("textshare")
 db.createCollection("stored_texts")
 
 db.createRole(
