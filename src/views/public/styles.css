@@ -62,12 +62,12 @@ option:disabled { color: lightgray; }
 #signupButton:hover,#signupButton:focus
 { background-color: lightgray !important; color: #17a2b8 !important; }
 
-.select-section { width: 20%; flex: 0 0 20%; padding-left: 5px; }
+.settings-custom-section { width: 20%; flex: 0 0 20%; padding-left: 5px; }
 #periodRadioSection { width: 10%; flex: 0 0 10%; padding-left: 5px; }
 
 @media screen and (min-width: 992px)
 { 
-	.select-section { width: 10%; flex: 0 0 10%; }
+	.settings-custom-section { width: 10%; flex: 0 0 10%; }
 	#periodRadioSection { width: 5%; flex: 0 0 5%; }
 }
 

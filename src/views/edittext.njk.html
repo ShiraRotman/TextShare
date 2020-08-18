@@ -1,26 +1,28 @@
 {% extends "sitepage.njk.html" %}
 {% block pagetitle %}
-	New Text
+	{{ "Update" if (update) else "New" }} Text
 {% endblock %}
 {% block contenttitle %}
-	New Text
+	{{ "Update" if (update) else "New" }} Text
 {% endblock %}
 
 {% block content %}
-	<form id="newtextForm" method="post" action="/newtext" class="mt-3" onsubmit="newtextFormSubmitted()">
+	<form id="edittextForm" onsubmit="edittextFormSubmitted()" method="post" class="mt-3"
+		action="/{{ 'update/' + addresskey if (update) else 'newtext' }}">
 		<div class="form-row">
-			<textarea id="newtextArea" name="text" rows="20" maxlength="{{ maxTextLength }}"
-				class="form-control text-container" style="resize: none;" autofocus required></textarea>
+			<textarea id="edittextArea" name="text" rows="20" maxlength="{{ maxTextLength }}"
+				class="form-control text-container" style="resize: none;" 
+				autofocus required>{{ text }}</textarea>
 		</div>
 		<div class="form-row"><h5>Optional Settings</h5></div>
 		<div class="form-row">
 			<label for="formatSelect" class="col-2 col-lg-1 col-form-label">
 				Formatting:
 			</label>
-			<div class="select-section">
+			<div class="settings-custom-section">
 				<select id="formatSelect" name="format" class="form-control w-100">
-					<option value="N" selected>None</option>
-					<option value="C">Code</option>
+					<option value="N" {{ 'selected' if (format==="N") }}>None</option>
+					<option value="C" {{ 'selected' if (format==="C") }}>Code</option>
 					<option value="B" disabled>Blockquote</option> <!-- Unsupported for now -->
 				</select>
 			</div>
@@ -29,41 +31,52 @@
 			<label for="quantityInput" class="col-2 col-lg-1 col-form-label">
 				Expiration:
 			</label>
+			{% if (update) and (quantity or period) %}
+			<div class="settings-custom-section form-check form-check-inline pl-0">
+				<input id="retainExpireRadio" type="radio" name="expiry" value="R" checked
+					class="form-check-input" onclick="changePeriodControlsState(true)"/>
+				<label for="retainExpireRadio" class="form-check-label">Don't change</label>
+			</div>
+			{% endif %}
 			<div id="periodRadioSection" class="form-check form-check-inline">
-				<input id="periodExpireRadio" type="radio" name="expiry" value="P" checked 
-					class="form-check-input" onclick="changePeriodControlsState(false)"/>
+				<input id="periodExpireRadio" type="radio" name="expiry" value="P"
+					class="form-check-input" onclick="changePeriodControlsState(false)"
+					{{ "checked" if (not update) }}/>
 				<label for="periodExpireRadio" class="form-check-label">After</label>
 			</div>
 			<!-- TODO: Refactor to a library/web component -->
 			<div class="col-2 col-lg-1 input-group">
-				<div class="input-group-prepend w-25" style="margin-right: 0;">
+				<div class="input-group-prepend w-25 mr-0">
 					<button type="button" class="w-100 step-button down-button period-comp"
 						onclick="stepButtonClicked(event,-1)">
 						<img src="triangle-down.svg" width="16" height="16"/>
 					</button>
 				</div>
 				<input id="quantityInput" name="quantity" type="number" maxlength="2" pattern="\d*"
-					class="form-control w-50 text-center period-comp" value="1" min="1" step="1"/>
-				<div class="input-group-append w-25" style="margin-left: 0;">
+					class="form-control w-50 text-center period-comp" min="1" step="1"
+					value="{{ quantity if (quantity) else '1' }}"/>
+				<div class="input-group-append w-25 ml-0">
 					<button type="button" class="w-100 step-button up-button period-comp"
 						onclick="stepButtonClicked(event,1)">
 						<img src="triangle-up.svg" width="16" height="16"/>
 					</button>
 				</div>
 			</div>
-			<div class="select-section">
+			<div class="settings-custom-section">
 				<select id="periodSelect" name="period" onchange="periodSelectChanged(event)"
 					class="form-control w-100 period-comp">
-					{% for period in periods %}
-						<option value="{{ period.value }}" data-max="{{ period.max }}">
-							{{ period.name }}
+					{% for perioditem in periods %}
+						<option value="{{ perioditem.value }}" data-max="{{ perioditem.max }}" 
+							{{ "selected" if (period===perioditem.value) }}>
+							{{ perioditem.name }}
 						</option>
 					{% endfor %}
 				</select>
 			</div>
 			<div class="col-2 col-lg-1 ml-3 form-check form-check-inline">
 				<input id="neverExpireRadio" type="radio" name="expiry" value="N" 
-					class="form-check-input" onclick="changePeriodControlsState(true)"/>
+					class="form-check-input" onclick="changePeriodControlsState(true)"
+					{{ "checked" if (update) and (not quantity) and (not period) }}/>
 				<label for="neverExpireRadio" class="form-check-label">Never</label>
 			</div>
 		</div>
@@ -72,8 +85,8 @@
 				Name / Title:
 			</label>
 			<div class="col-4 col-lg-2">
-				<input id="nameTitleInput" name="nametitle" type="text" autocomplete="off"
-					maxlength="{{ maxNameLength }}" class="form-control w-100"/>
+				<input id="nameTitleInput" name="nametitle" type="text" value="{{ nametitle }}"
+					class="form-control w-100" maxlength="{{ maxNameLength }}" autocomplete="off"/>
 			</div>
 		</div>
 		<div class="form-row">
@@ -95,6 +108,7 @@
 			const maxvalue=periodSelect.options[periodSelect.selectedIndex].
 					getAttribute("data-max");
 			document.getElementById("quantityInput").max=maxvalue;
+			changePeriodControlsState(!document.getElementById("periodExpireRadio").checked);
 			
 			const numericInputs=document.querySelectorAll(":scope input[type='number']");
 			Array.prototype.forEach.call(numericInputs,function(numericInput)
@@ -159,9 +173,9 @@
 			numericInput.value=model.value;
 		}
 		
-		function newtextFormSubmitted()
+		function edittextFormSubmitted()
 		{
-			const numericInputs=document.getElementById("newtextForm").
+			const numericInputs=document.getElementById("edittextForm").
 					querySelectorAll(":scope input[type='number']");
 			Array.prototype.forEach.call(numericInputs,function(numericInput)
 			{

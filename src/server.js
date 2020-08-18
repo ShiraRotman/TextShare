@@ -117,6 +117,7 @@ renderer.configure(viewsdir,{ autoescape: true, express: server });
 server.use(express.urlencoded({extended: true}));
 server.use("/",express.static(`${viewsdir}/public`));
 server.use("/user",express.static(`${viewsdir}/public`));
+server.use("/edit",express.static(`${viewsdir}/public`));
 server.use(passport.initialize(),passport.session());
 
 server.get("/",function(request,response)
@@ -129,7 +130,7 @@ server.get("/",function(request,response)
 	}
 	else renderdata.maxTextLength=MAX_UNLOGGED_TEXT_LENGTH;
 	renderdata.periods=renderPeriods;
-	response.render("newtext.njk.html",renderdata);
+	response.render("edittext.njk.html",renderdata);
 });
 
 server.get("/logout",function(request,response)
@@ -234,27 +235,68 @@ server.get(`/:addresskey(${addresskeyPattern})`,function(request,response,next)
 	}).catch(next);
 });
 
-server.delete(`/delete/:addresskey(${addresskeyPattern})`,async function(request,response,next)
+server.delete(`/delete/:addresskey(${addresskeyPattern})`,function(request,response,next)
 {
 	const addresskey=request.params.addresskey;
-	try
-	{
-		const dataObj=await persist.findTextByKey(addresskey);
-		if (!dataObj) response.sendStatus(404);
-		else if ((!dataObj.username)||(dataObj.username!==request.user.username))
-		{
-			response.set("WWW-Authenticate","Form");
-			response.status(401).send("You are not authorized to delete this text!");
-		}
-		else { await persist.deleteText(addresskey); response.sendStatus(200); }
-	}
-	catch(error) { next(error); }
+	validateTextChange(addresskey,request,response).then(function()
+	{ persist.deleteText(addresskey); }).then(function()
+	{ response.sendStatus(200); }).catch(function(error)
+	{ if (!(error instanceof DataAccessError)) next(error); });
 });
+
+server.get(`/edit/:addresskey(${addresskeyPattern})`,function(request,response,next)
+{
+	const addresskey=request.params.addresskey;
+	validateTextChange(addresskey,request,response).then(function(dataObj)
+	{
+		const renderdata=
+		{ 
+			maxNameLength: MAX_NAME_LENGTH, periods: renderPeriods,
+			maxTextLength: MAX_LOGGED_TEXT_LENGTH, update: true,
+			username: request.user.username
+		};
+		Object.assign(renderdata,dataObj);
+		renderdata.addresskey=renderdata._id; delete renderdata._id;
+		delete renderdata.creationdate; delete renderdata.expirydate;
+		response.render("edittext.njk.html",renderdata);
+	}).catch(function(error)
+	{ if (!(error instanceof DataAccessError)) next(error); });
+});
+
+function validateTextChange(textkey,request,response)
+{
+	return new Promise(function(resolve,reject)
+	{
+		persist.findTextByKey(textkey).then(function(dataObj)
+		{
+			if (!dataObj)
+			{
+				response.sendStatus(404);
+				reject(new DataAccessError("Text not found!"));
+			}
+			else if ((!dataObj.username)||(!request.user)||(dataObj.username!==
+					request.user.username))
+			{
+				response.set("WWW-Authenticate","Form");
+				response.status(401).send("You are not authorized to change " + 
+						"or delete this text!");
+				reject(new DataAccessError("Authorization violation!"));
+			}
+			else resolve(dataObj);
+		}).catch(function(error) { reject(error); });
+	});
+}
+
+function DataAccessError(message) { Error.call(this,message); }
+DataAccessError.prototype=Object.create(Error.prototype);
+DataAccessError.prototype.constructor=DataAccessError;
+DataAccessError.prototype.name="DataAccessError";
 
 server.get("/user/:username",async function(request,response,next)
 {
 	const username=request.params.username;
-	if ((!username)||(checkUserName(username)!==null)) return response.sendStatus(404);
+	if ((!username)||(checkUserName(username)!==null))
+		return response.sendStatus(404);
 	try 
 	{
 		const userdata=await persist.findUserByName(username);
@@ -281,78 +323,114 @@ server.get("/user/:username",async function(request,response,next)
 	catch(error) { next(error); }
 });
 
-server.post("/newtext",async function(request,response,next)
+function validateTextData(request)
 {
-	const newtext=request.body.text;
-	if ((!newtext)||(newtext.length===0))
-		return response.status(400).send("No text was sent!");
+	const textContent=request.body.text;
+	if ((!textContent)||(textContent.length===0)) return "No text was sent!";
 	else
 	{
 		const maxTextLength=((request.isAuthenticated)&&(request.isAuthenticated())?
 				MAX_LOGGED_TEXT_LENGTH:MAX_UNLOGGED_TEXT_LENGTH);
-		if (newtext.length>maxTextLength)
-			return response.status(400).send(`You cannot share a text that's longer than ${maxTextLength}`);
+		if (textContent.length>maxTextLength)
+			return `You cannot share a text that's longer than ${maxTextLength}`;
 	}
-	const nametitle=request.body.nametitle;
-	if ((nametitle)&&(nametitle.length>MAX_NAME_LENGTH))
-		return response.status(400).send(`The name/title cannot be longer than ${MAX_NAME_LENGTH}!`);
+	const settings=new Object(),nametitle=request.body.nametitle;
+	if (nametitle)
+	{
+		if (nametitle.length>MAX_NAME_LENGTH)
+			return `The name/title cannot be longer than ${MAX_NAME_LENGTH}!`;
+		else settings.nametitle=nametitle;
+	}
 	const format=request.body.format;
-	/*For supporting blockquotes, the text must be analyzed and broken into parts,
-	  which might be a lengthy process and thus requires partitioning the work 
-	  and optionally forcing a tighter constraint on the text's length.
-	  Performing the process on the client side is unfortunately problematic due to
-	  security issues. Therefore, it won't be implemented for now.*/
-	if ((format)&&(format!=="N")&&(format!=="C")) //&&(format!=="B"))
-		return response.status(400).send("Invalid text format!");
+	if (format)
+	{
+		/*For supporting blockquotes, the text must be analyzed and broken into parts,
+		  which might be a lengthy process and thus requires partitioning the work 
+		  and optionally forcing a tighter constraint on the text's length.
+		  Performing the process on the client side is unfortunately problematic due to
+		  security issues. Therefore, it won't be implemented for now.*/
+		if ((format!=="N")&&(format!=="C")) //&&(format!=="B"))
+			return "Invalid text format!";
+		else if (format!=="N") settings.format=format;
+	}	
 	const expiry=request.body.expiry;
-	if ((expiry)&&(expiry!=="N")&&(expiry!=="P"))
-		return response.status(400).send("Invalid expiry value!");
+	if ((expiry)&&((expiry!=="N")&&(expiry!=="P")&&(expiry!=="R"))||((expiry==="R")&&
+			(!request.path.startsWith("/update"))))
+		return "Invalid expiry value!";
 	else if (expiry==="P")
 	{
-		var quantity=request.body.quantity,period=request.body.period;
-		if ((period)&&(!(period in periodsData)))
-			return response.status(400).send("Invalid period value!");
+		let quantity=request.body.quantity,period=request.body.period;
+		if ((period)&&(!(period in periodsData))) return "Invalid period value!";
 		else if (!period) period="m";
 		if (quantity)
 		{
-			if (quantity.length>MAX_QUANTITY_DIGITS)
-				return response.status(400).send("Quantity value too long!");
+			if (quantity.length>MAX_QUANTITY_DIGITS) 
+				return "Quantity value too long!";
 			else
 			{
 				quantity=Number.parseInt(quantity);
-				if (Number.isNaN(quantity))
-					return response.status(400).send("Quantity value must be numeric!");
-				else if (!Number.isInteger(quantity))
-					return response.status("Quantity value cannot be a fraction!");
+				if (Number.isNaN(quantity)) 
+					return "Quantity value must be numeric!";
+				else if (!Number.isInteger(quantity)) 
+					return "Quantity value cannot be a fraction!";
 				else
 				{
 					const maxvalue=periodsData[period].max;
 					if ((quantity<1)||(quantity>maxvalue))
-						return response.status(400).send(`Quantity value must be between 1 and ${maxvalue}!`);
+						return `Quantity value must be between 1 and ${maxvalue}!`;
 				}
 			}
 		}
 		else quantity=1;
+		settings.quantity=quantity; settings.period=period;
 	}
+	return settings;
+}
+
+function updateExpiryDate(settings,expiry,reset)
+{
+	if (expiry==="P")
+	{
+		const periodData=periodsData[settings.period];
+		const basetime=(reset?Date.now():settings.creationdate.getTime());
+		const expirydate=new Date(basetime);
+		periodData.dateset.call(expirydate,periodData.dateget.call(expirydate)+
+				settings.quantity);
+		settings.expirydate=expirydate;
+	}
+	else if ((!expiry)||(expiry==="N")) delete settings.expirydate;
+}
+
+//The patch HTTP method is not supported by HTML forms
+server.post(`/update/:addresskey(${addresskeyPattern})`,function(request,response,next)
+{
+	const result=validateTextData(request);
+	if (typeof(result)==="string") return response.status(400).send(result);
+	const settings=result,addresskey=request.params.addresskey;
+	validateTextChange(addresskey,request,response).then(function(dataObj)
+	{
+		settings.creationdate=dataObj.creationdate;
+		settings.expirydate=dataObj.expirydate;
+		updateExpiryDate(settings,request.body.expiry,true);
+		persist.updateText(addresskey,request.body.text,settings); 
+	}).then(function() { response.redirect(`/${addresskey}`); }).catch(
+	function(error) { next(error); });
+});
+
+server.post("/newtext",async function(request,response,next)
+{
+	const validationResult=validateTextData(request);
+	if (typeof(validationResult)==="string")
+		return response.status(400).send(validationResult);
+	const newtext=request.body.text,settings=validationResult;
+	settings.creationdate=new Date();
+	updateExpiryDate(settings,request.body.expiry);
 	
 	//Based on the algorithm suggested on https://nlogn.in/designing-a-realtime-scalable-url-shortening-service-like-tiny-url/
 	const hashing=crypto.createHash("md5"); hashing.update(newtext);
-	const settings=new Object();
-	if ((nametitle)&&(nametitle.length>0))
-	{ hashing.update(nametitle); settings.nametitle=nametitle; }
+	if ((settings.nametitle)&&(settings.nametitle.length>0))
+		hashing.update(settings.nametitle);
 	if (request.user) hashing.update(request.user.username);
-	if ((format)&&(format!=="N")) settings.format=format;
-	if ((expiry)&&(expiry!=="N"))
-	{
-		const periodData=periodsData[period]; 
-		settings.creationdate=new Date();
-		const expirydate=new Date(settings.creationdate.getTime());
-		periodData.dateset.call(expirydate,periodData.dateget.call(
-				expirydate)+quantity); settings.expirydate=expirydate;
-		settings.period=period; settings.quantity=quantity;
-	}
-	else settings.creationdate=new Date();
-	
 	//Slashes change the URL's path
 	const result=hashing.digest("base64").replace("/","$");
 	let addresskey,found=false,times=0;

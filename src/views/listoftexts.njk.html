@@ -39,8 +39,9 @@
 				<td data-moment="{{ textitem.expirydate }}">Never</td>
 				{% if (listowner===username) %}
 				<td class="d-flex justify-content-end">
-					<img src="editing.svg" width="24" height="24" title="Edit Text"
-						class="image-button"/>
+					<img src="editing.svg" width="24" height="24" class="image-button"
+						data-address="{{ textitem.addresskey }}" title="Edit Text"
+						onclick="editImageClicked(event)"/>
 					<img src="delete.svg" width="24" height="24" class="image-button"
 						data-address="{{ textitem.addresskey }}" title="Delete Text"
 						onclick="deleteImageClicked(event)"/>
@@ -112,6 +113,12 @@
 					contentElement.classList.replace("w-75","w-100");
 			}
 		});
+		
+		function editImageClicked(event)
+		{
+			const addresskey=event.target.getAttribute("data-address");
+			open(`../../edit/${addresskey}`,"_self");
+		}
 		
 		function deleteImageClicked(event)
 		{

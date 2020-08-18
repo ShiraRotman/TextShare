@@ -109,6 +109,51 @@ function deleteText(textkey)
 	});
 }
 
+function updateText(textkey,textvalue,settings)
+{
+	const updatedFields={text: textvalue, updated: true},deletedFields={ };
+	if (settings.nametitle) updatedFields.nametitle=settings.nametitle;
+	else deletedFields.nametitle="";
+	if (settings.format) updatedFields.format=settings.format;
+	else deletedFields.format="";
+	if (settings.expirydate)
+	{
+		updatedFields.expirydate=settings.expirydate;
+		if (updatedFields.expirydate instanceof Date)
+		{
+			updatedFields.expirydate=mongo.Long.fromNumber(updatedFields.
+					expirydate.getTime());
+		}
+		if (settings.quantity) updatedFields.quantity=settings.quantity;
+		if (settings.period) updatedFields.period=settings.period;
+	}
+	else
+	{
+		deletedFields.expirydate=""; 
+		deletedFields.quantity=""; deletedFields.period="";
+	}
+	
+	const operators=new Object();
+	if (Object.keys(updatedFields).length>0) operators["$set"]=updatedFields;
+	if (Object.keys(deletedFields).length>0) operators["$unset"]=deletedFields;
+	return new Promise(async function(resolve,reject)
+	{
+		try
+		{
+			const client=await connectToDB();
+			const collection=client.db().collection("stored_texts");
+			try
+			{
+				const result=await collection.updateOne({_id: textkey},operators);
+				if (result.modifiedCount===1) resolve();
+				else reject(new Error("Text does not exist or hasn't been updated!"));
+			}
+			finally { client.close().catch(()=>{ }); }
+		}
+		catch(error) { reject(error); }
+	});
+}
+
 function insertUser(username,password,salt)
 {
 	return new Promise(async function(resolve,reject)
@@ -148,5 +193,5 @@ module.exports=
 	DataIntegrityError: DataIntegrityError,
 	findUserByName: findUser, insertUser: insertUser,
 	findTextByKey: findText, retrieveTextsForUser: retrieveTexts,
-	insertText: insertText, deleteText: deleteText
+	insertText: insertText, updateText: updateText, deleteText: deleteText
 };
