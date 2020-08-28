@@ -42,7 +42,9 @@ const filesystem=require("fs"),pathutils=require("path");
 const express=require("express"),server=express();
 const session=require("express-session"),renderer=require("nunjucks");
 const passport=require("passport"),Strategy=require("passport-local").Strategy;
+
 const persist=require("./persistence.js");
+const WorkersPool=require("./workers_pool"),workersPool=new WorkersPool();
 
 passport.use("login",new Strategy(async function(username,password,handler)
 {
@@ -427,12 +429,12 @@ server.post("/newtext",async function(request,response,next)
 	updateExpiryDate(settings,request.body.expiry);
 	
 	//Based on the algorithm suggested on https://nlogn.in/designing-a-realtime-scalable-url-shortening-service-like-tiny-url/
-	const hashing=crypto.createHash("md5"); hashing.update(newtext);
+	const hashParams=["md5","base64",newtext]; let result;
 	if ((settings.nametitle)&&(settings.nametitle.length>0))
-		hashing.update(settings.nametitle);
-	if (request.user) hashing.update(request.user.username);
-	//Slashes change the URL's path
-	const result=hashing.digest("base64").replace("/","$");
+		hashParams.push(settings.nametitle);
+	if (request.user) hashParams.push(request.user.username);
+	try { result=await workersPool.executeTask("hashPlainData",hashParams); }
+	catch(error) { return next(error); }
 	let addresskey,found=false,times=0;
 	const keystartIndicesNum=result.length-KEY_CHARS_NUM+1;
 	/*Have to limit the number of trials to prevent DOS attacks using the 
@@ -440,7 +442,8 @@ server.post("/newtext",async function(request,response,next)
 	while ((!found)&&(times<Math.ceil(keystartIndicesNum*0.85)))
 	{
 		const startIndex=Math.floor(Math.random()*keystartIndicesNum);
-		addresskey=result.substring(startIndex,startIndex+KEY_CHARS_NUM);
+		//Slashes change the URL's path
+		addresskey=result.substring(startIndex,startIndex+KEY_CHARS_NUM).replace("/","$");
 		try 
 		{ 
 			await persist.insertText(addresskey,newtext,settings,(request.
@@ -457,9 +460,12 @@ server.post("/newtext",async function(request,response,next)
 	else next(new Error("Could not store the text!!!"));
 });
 
-let port=process.env.NODE_PORT; if (!port) port=DEF_PORT;
-https.createServer(
+const theServer=https.createServer(
 {
 	key: filesystem.readFileSync(pathutils.join(__dirname,"sitekey.pem")),
 	cert: filesystem.readFileSync(pathutils.join(__dirname,"sitecert.pem"))
-},server).listen(port,function() { console.log(`Now listening on port ${port}.`); });
+},server);
+
+theServer.once("close",() => workersPool.shutdown());
+let port=process.env.NODE_PORT; if (!port) port=DEF_PORT;
+theServer.listen(port,() => console.log(`Now listening on port ${port}.`));
