@@ -237,62 +237,45 @@ server.get(`/:addresskey(${addresskeyPattern})`,function(request,response,next)
 	}).catch(next);
 });
 
-server.delete(`/delete/:addresskey(${addresskeyPattern})`,function(request,response,next)
+server.delete(`/delete/:addresskey(${addresskeyPattern})`,validateTextChange,
+		function(request,response,next)
 {
 	const addresskey=request.params.addresskey;
-	validateTextChange(addresskey,request,response).then(function()
-	{ persist.deleteText(addresskey); }).then(function()
-	{ response.sendStatus(200); }).catch(function(error)
-	{ if (!(error instanceof DataAccessError)) next(error); });
+	persist.deleteText(addresskey).then(() => response.sendStatus(200)).
+	catch(error => next(error));
 });
 
-server.get(`/edit/:addresskey(${addresskeyPattern})`,function(request,response,next)
+server.get(`/edit/:addresskey(${addresskeyPattern})`,validateTextChange,
+		function(request,response)
 {
 	const addresskey=request.params.addresskey;
-	validateTextChange(addresskey,request,response).then(function(dataObj)
+	const renderdata=
 	{
-		const renderdata=
-		{ 
-			maxNameLength: MAX_NAME_LENGTH, periods: renderPeriods,
-			maxTextLength: MAX_LOGGED_TEXT_LENGTH, update: true,
-			username: request.user.username
-		};
-		Object.assign(renderdata,dataObj);
-		renderdata.addresskey=renderdata._id; delete renderdata._id;
-		delete renderdata.creationdate; delete renderdata.expirydate;
-		response.render("edittext.njk.html",renderdata);
-	}).catch(function(error)
-	{ if (!(error instanceof DataAccessError)) next(error); });
+		maxNameLength: MAX_NAME_LENGTH, periods: renderPeriods,
+		maxTextLength: MAX_LOGGED_TEXT_LENGTH, update: true,
+		username: request.user.username
+	};
+	Object.assign(renderdata,request.textData);
+	renderdata.addresskey=renderdata._id; delete renderdata._id;
+	delete renderdata.creationdate; delete renderdata.expirydate;
+	response.render("edittext.njk.html",renderdata);
 });
 
-function validateTextChange(textkey,request,response)
+function validateTextChange(request,response,next)
 {
-	return new Promise(function(resolve,reject)
+	persist.findTextByKey(request.params.addresskey).then(function(textData)
 	{
-		persist.findTextByKey(textkey).then(function(dataObj)
+		if (!textData) response.sendStatus(404);
+		else if ((!textData.username)||(!request.user)||(textData.username!==
+				request.user.username))
 		{
-			if (!dataObj)
-			{
-				response.sendStatus(404);
-				reject(new DataAccessError("Text not found!"));
-			}
-			else if ((!dataObj.username)||(!request.user)||(dataObj.username!==
-					request.user.username))
-			{
-				response.set("WWW-Authenticate","Form");
-				response.status(401).send("You are not authorized to change " + 
-						"or delete this text!");
-				reject(new DataAccessError("Authorization violation!"));
-			}
-			else resolve(dataObj);
-		}).catch(function(error) { reject(error); });
-	});
+			response.set("WWW-Authenticate","Form");
+			response.status(401).send("You are not authorized to change " + 
+					"or delete this text!");
+		}
+		else { request.textData=textData; next(); }
+	}).catch(error => next(error));
 }
-
-function DataAccessError(message) { Error.call(this,message); }
-DataAccessError.prototype=Object.create(Error.prototype);
-DataAccessError.prototype.constructor=DataAccessError;
-DataAccessError.prototype.name="DataAccessError";
 
 server.get("/user/:username",async function(request,response,next)
 {
@@ -399,24 +382,25 @@ function updateExpiryDate(settings,expiry,reset)
 }
 
 //The patch HTTP method is not supported by HTML forms
-server.post(`/update/:addresskey(${addresskeyPattern})`,function(request,response,next)
+server.post(`/update/:addresskey(${addresskeyPattern})`,validateTextChange,
+		function(request,response,next)
 {
 	const result=validateTextData(request);
-	if (typeof(result)==="string") return response.status(400).send(result);
-	const settings=result,addresskey=request.params.addresskey;
-	validateTextChange(addresskey,request,response).then(function(dataObj)
+	if (typeof(result)==="string") response.status(400).send(result);
+	else
 	{
-		settings.creationdate=dataObj.creationdate;
-		settings.expirydate=dataObj.expirydate;
+		const settings=result,addresskey=request.params.addresskey;
+		settings.creationdate=request.textData.creationdate;
+		settings.expirydate=request.textData.expirydate;
 		updateExpiryDate(settings,request.body.expiry,true);
 		if (settings.format==="B")
 		{
 			workersPool.executeTask("analyzeBlockQuote",[request.body.text]).
 			then(quoteParts => Object.assign(settings,quoteParts));
 		}
-		persist.updateText(addresskey,request.body.text,settings); 
-	}).then(function() { response.redirect(`/${addresskey}`); }).catch(
-	function(error) { next(error); });
+		persist.updateText(addresskey,request.body.text,settings).then(() => 
+				response.redirect(`/${addresskey}`)).catch(error => next(error));
+	}
 });
 
 server.post("/newtext",async function(request,response,next)
