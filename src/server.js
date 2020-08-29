@@ -346,12 +346,7 @@ function validateTextData(request)
 	const format=request.body.format;
 	if (format)
 	{
-		/*For supporting blockquotes, the text must be analyzed and broken into parts,
-		  which might be a lengthy process and thus requires partitioning the work 
-		  and optionally forcing a tighter constraint on the text's length.
-		  Performing the process on the client side is unfortunately problematic due to
-		  security issues. Therefore, it won't be implemented for now.*/
-		if ((format!=="N")&&(format!=="C")) //&&(format!=="B"))
+		if ((format!=="N")&&(format!=="C")&&(format!=="B"))
 			return "Invalid text format!";
 		else if (format!=="N") settings.format=format;
 	}	
@@ -414,6 +409,11 @@ server.post(`/update/:addresskey(${addresskeyPattern})`,function(request,respons
 		settings.creationdate=dataObj.creationdate;
 		settings.expirydate=dataObj.expirydate;
 		updateExpiryDate(settings,request.body.expiry,true);
+		if (settings.format==="B")
+		{
+			workersPool.executeTask("analyzeBlockQuote",[request.body.text]).
+			then(quoteParts => Object.assign(settings,quoteParts));
+		}
 		persist.updateText(addresskey,request.body.text,settings); 
 	}).then(function() { response.redirect(`/${addresskey}`); }).catch(
 	function(error) { next(error); });
@@ -427,6 +427,14 @@ server.post("/newtext",async function(request,response,next)
 	const newtext=request.body.text,settings=validationResult;
 	settings.creationdate=new Date();
 	updateExpiryDate(settings,request.body.expiry);
+	if (settings.format==="B")
+	{
+		let quoteParts;
+		try 
+		{ quoteParts=await workersPool.executeTask("analyzeBlockQuote",[newtext]); }
+		catch(error) { return next(error); }
+		Object.assign(settings,quoteParts);
+	}
 	
 	//Based on the algorithm suggested on https://nlogn.in/designing-a-realtime-scalable-url-shortening-service-like-tiny-url/
 	const hashParams=["md5","base64",newtext]; let result;

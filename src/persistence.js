@@ -109,13 +109,21 @@ function deleteText(textkey)
 	});
 }
 
-function updateText(textkey,textvalue,settings)
+function calcFieldChanges(settings)
 {
 	const updatedFields={text: textvalue, updated: true},deletedFields={ };
 	if (settings.nametitle) updatedFields.nametitle=settings.nametitle;
 	else deletedFields.nametitle="";
 	if (settings.format) updatedFields.format=settings.format;
 	else deletedFields.format="";
+	if (settings.format==="B")
+	{
+		updatedFields.quote=settings.quote; 
+		if (settings.persona) updatedFields.persona=settings.persona;
+		if (settings.source) updatedFields.source=settings.source;
+	}
+	else
+	{ deletedFields.quote=""; deletedFields.persona=""; deletedFields.source=""; }
 	if (settings.expirydate)
 	{
 		updatedFields.expirydate=settings.expirydate;
@@ -132,7 +140,12 @@ function updateText(textkey,textvalue,settings)
 		deletedFields.expirydate=""; 
 		deletedFields.quantity=""; deletedFields.period="";
 	}
+	return {updatedFields, deletedFields};
+}
 	
+function updateText(textkey,textvalue,settings)
+{
+	const {updatedFields,deletedFields}=calcFieldChanges(settings);
 	const operators=new Object();
 	if (Object.keys(updatedFields).length>0) operators["$set"]=updatedFields;
 	if (Object.keys(deletedFields).length>0) operators["$unset"]=deletedFields;

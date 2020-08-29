@@ -34,6 +34,8 @@ WorkersPool.prototype.executeTask=function(taskname,params)
 		throw new ReferenceError("The task's name is mandatory!");
 	else if (typeof(taskname)!=="string")
 		throw new TypeError("The task's name must be a string!");
+	else if ((params)&&(!Array.isArray(params)))
+		throw new TypeError("The task's parameters must be in an array!");
 	
 	const taskData={ taskname: taskname, params: params }; let worker=null;
 	if (privateProps.freeWorkers.length===0)

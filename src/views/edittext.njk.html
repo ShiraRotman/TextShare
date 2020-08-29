@@ -23,7 +23,7 @@
 				<select id="formatSelect" name="format" class="form-control w-100">
 					<option value="N" {{ 'selected' if (format==="N") }}>None</option>
 					<option value="C" {{ 'selected' if (format==="C") }}>Code</option>
-					<option value="B" disabled>Blockquote</option> <!-- Unsupported for now -->
+					<option value="B" {{ 'selected' if (format==="B") }}>Blockquote</option>
 				</select>
 			</div>
 		</div>

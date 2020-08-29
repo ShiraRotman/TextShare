@@ -19,9 +19,25 @@
 		{% if (format==="C") %}
 			<pre><code>
 		{% endif %}
-		{{ text }}
+		{% if (format!=="B") %}
+			{{ text }}
+		{% endif %}
 		{% if (format==="C") %}
 			</code></pre>
+		{% endif %}
+		{% if (format==="B") %}
+			<blockquote class="blockquote">
+				<p class="mb-0">{{ quote }}</p>
+				{% if persona %}
+				<!-- TODO: Handle localized quotes (rtl) -->
+				<footer class="blockquote-footer text-right">
+					{{ persona }}
+					{% if source %}
+					<cite>{{ source }}</cite>
+					{% endif %}
+				</footer>
+				{% endif %}
+			</blockquote>
 		{% endif %}
 	</div>
 {% endblock %}
