@@ -109,7 +109,7 @@ function deleteText(textkey)
 	});
 }
 
-function calcFieldChanges(settings)
+function calcFieldChanges(textvalue,settings)
 {
 	const updatedFields={text: textvalue, updated: true},deletedFields={ };
 	if (settings.nametitle) updatedFields.nametitle=settings.nametitle;
@@ -145,7 +145,7 @@ function calcFieldChanges(settings)
 	
 function updateText(textkey,textvalue,settings)
 {
-	const {updatedFields,deletedFields}=calcFieldChanges(settings);
+	const {updatedFields,deletedFields}=calcFieldChanges(textvalue,settings);
 	const operators=new Object();
 	if (Object.keys(updatedFields).length>0) operators["$set"]=updatedFields;
 	if (Object.keys(deletedFields).length>0) operators["$unset"]=deletedFields;
