@@ -167,7 +167,7 @@ function updateText(textkey,textvalue,settings)
 	});
 }
 
-function insertUser(username,password,salt)
+function insertUser(username,email,password,salt)
 {
 	return new Promise(async function(resolve,reject)
 	{
@@ -183,10 +183,34 @@ function insertUser(username,password,salt)
 				else
 				{
 					const result=await collection.insertOne(
-					{_id: username, password: password, salt: salt });
+					{
+						_id: username, email: email, password: password,
+						salt: salt, verified: false
+					});
 					if (result.insertedCount===1) resolve();
 					else reject(new Error("Unexpected error! User hasn't been added!"));
 				}
+			}
+			finally { client.close().catch(()=>{ }); }
+		}
+		catch(error) { reject(error); }
+	});
+}
+
+function verifyUser(username)
+{
+	return new Promise(async function(resolve,reject)
+	{
+		try
+		{
+			const client=await connectToDB();
+			const collection=client.db().collection("users");
+			try
+			{
+				const result=await collection.updateOne({_id: username},
+					{ $set: { verified: true } });
+				if (result.modifiedCount===1) resolve();
+				else reject(new Error("Unexpected error! User hasn't been updated!"));
 			}
 			finally { client.close().catch(()=>{ }); }
 		}
@@ -203,8 +227,7 @@ DataIntegrityError.prototype.name="DataIntegrityError";
 
 module.exports=
 {
-	DataIntegrityError: DataIntegrityError,
-	findUserByName: findUser, insertUser: insertUser,
-	findTextByKey: findText, retrieveTextsForUser: retrieveTexts,
-	insertText: insertText, updateText: updateText, deleteText: deleteText
+	DataIntegrityError, findUserByName: findUser, insertUser, verifyUser,
+	findTextByKey: findText, retrieveTextsForUser: retrieveTexts, 
+	insertText, updateText, deleteText
 };

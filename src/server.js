@@ -1,11 +1,15 @@
 
 const DEF_PORT=4096,KEY_CHARS_NUM=6,MAX_NAME_LENGTH=15,MAX_QUANTITY_DIGITS=2;
 const MAX_UNLOGGED_TEXT_LENGTH=16384,MAX_LOGGED_TEXT_LENGTH=65536;
+
 const MIN_USERNAME_LENGTH=8,MAX_USERNAME_LENGTH=15;
 const MIN_PASSWORD_LENGTH=8,MAX_PASSWORD_LENGTH=25;
+const MIN_EMAIL_LENGTH=10,MAX_EMAIL_LENGTH=40;
 
-const LOGIN_ERROR_TEXT="Incorrect username or password!";
-const SIGNUP_ERROR_TEXT="Username already exists!";
+const USERNAME_EXISTS_TEXT="Username already exists!";
+const NOT_VERIFIED_TEXT="Account has not been verified!";
+const MAIL_RESEND_LINK_TEXT="Re-send verification mail";
+const INVALID_CRED_TEXT="Incorrect username or password!";
 
 const addresskeyPattern=`[A-Za-z0-9=$\\\+]{${KEY_CHARS_NUM}}`;
 const usernamePattern="^(?:\\p{L}|\\p{M}|\\p{N}|\\p{Pd}|\\p{Pc})+$";
@@ -43,7 +47,7 @@ const express=require("express"),server=express();
 const session=require("express-session"),renderer=require("nunjucks");
 const passport=require("passport"),Strategy=require("passport-local").Strategy;
 
-const persist=require("./persistence.js");
+const persist=require("./persistence.js"),sendMail=require("./mail_sender");
 const WorkersPool=require("./workers_pool"),workersPool=new WorkersPool();
 
 passport.use("login",new Strategy(async function(username,password,handler)
@@ -51,31 +55,47 @@ passport.use("login",new Strategy(async function(username,password,handler)
 	try
 	{
 		const dataObj=await persist.findUserByName(username);
-		if (!dataObj) return handler(null,false,{submiterror: LOGIN_ERROR_TEXT});
+		if (!dataObj) return handler(null,false,{errortext: INVALID_CRED_TEXT});
 		else
 		{
 			const hashresult=await hashpassword(password,dataObj.salt);
 			if (hashresult===dataObj.password)
-				return handler(null,{username: username});
-			else return handler(null,false,{submiterror: LOGIN_ERROR_TEXT});
+			{
+				if (!dataObj.verified)
+				{
+					return handler(null,false,
+					{
+						errortext: NOT_VERIFIED_TEXT,
+						linktext: MAIL_RESEND_LINK_TEXT,
+						link: generateResendLink(username)
+					});
+				}					
+				else return handler(null,{username: username});
+			}
+			else return handler(null,false,{errortext: INVALID_CRED_TEXT});
 		}
 	}
 	catch (error) { return handler(error); }
 }));
 
-passport.use("signup",new Strategy(async function(username,password,handler)
+passport.use("signup",new Strategy({ passReqToCallback: true },async function(
+		request,username,password,handler)
 {
 	try
 	{
+		//TODO: e-mail uniqueness validation
 		const dataObj=await persist.findUserByName(username);
 		if (dataObj) 
-			return handler(null,false,{signuperror: SIGNUP_ERROR_TEXT});
+			return handler(null,false,{errortext: USERNAME_EXISTS_TEXT});
 		else
 		{
 			//Since a small quantity is generated, it's done synchronously
 			const salt=crypto.randomBytes(16).toString("hex");
 			const hashresult=await hashpassword(password,salt);
-			await persist.insertUser(username,hashresult,salt);
+			const email=request.body.email;
+			await persist.insertUser(username,email,hashresult,salt);
+			try { await sendVerificationMail(email,username); }
+			catch (error) { return handler(null,false,{ }); }
 			return handler(null,{username: username});
 		}
 	}
@@ -84,7 +104,7 @@ passport.use("signup",new Strategy(async function(username,password,handler)
 		/*Might occur if a user with the same name has succeeded registering 
 		  between the find and insert calls*/
 		if (error instanceof persist.DataIntegrityError)
-			return handler(null,false,{signuperror: SIGNUP_ERROR_TEXT});
+			return handler(null,false,{errortext: USERNAME_EXISTS_TEXT});
 		else return handler(error);
 	}
 }));
@@ -152,6 +172,8 @@ function serveSignLogin(signup,request,response)
 		usernamePattern: userRenderPattern,
 		minUsernameLength: MIN_USERNAME_LENGTH,
 		maxUsernameLength: MAX_USERNAME_LENGTH,
+		minEmailLength: MIN_EMAIL_LENGTH,
+		maxEmailLength: MAX_EMAIL_LENGTH,
 		minPasswordLength: MIN_PASSWORD_LENGTH,
 		maxPasswordLength: MAX_PASSWORD_LENGTH
 	};
@@ -161,30 +183,110 @@ function serveSignLogin(signup,request,response)
 	response.render("signlogin.njk.html",renderdata);
 }
 
-server.post("/login",authenticate.bind(null,"login"));
-server.post("/signup",authenticate.bind(null,"signup"));
-
-function authenticate(strategy,request,response,next)
+server.post("/login",function(request,response,next)
 {
 	const username=request.body.username,password=request.body.password;
 	const message=checkCredentials(username,password);
 	if (message!==null) response.status(400).send(message);
-	else passport.authenticate(strategy,function(error,userdata,opdata)
+	else passport.authenticate("login",function(error,userdata,opdata)
 	{
 		if (error) return next(error);
 		else if (!userdata)
 		{
-			request.session.submiterror=opdata.submiterror;
-			return response.redirect(`/${strategy}`);
+			request.session.submiterror=opdata;
+			return response.redirect("/login");
 		}
 		else request.login(userdata,function(err)
 		{
+			/*TODO: Convert to a middleware since now the client gets the 
+			  message if it switches to another page, and then returns*/
 			delete request.session.submiterror;
 			if (err) return next(err);
 			else return response.redirect("/");
 		});
 	})(request,response,next);
+});
+
+server.post("/signup",authenticateNewUser,handleMailSendResult);
+server.get("/resend-verify",resendVerification,handleMailSendResult);
+
+function authenticateNewUser(request,response,next)
+{
+	const username=request.body.username,password=request.body.password;
+	let message=checkCredentials(username,password);
+	if (message===null) message=checkEmailAddress(request.body.email);
+	if (message!==null) response.status(400).send(message);
+	else passport.authenticate("signup",function(error,userdata,opdata)
+	{
+		if (error) return next(error);
+		else
+		{
+			const maildata={ username: username };
+			if (!userdata)
+			{
+				if (opdata.errortext)
+				{
+					request.session.submiterror=opdata;
+					return response.redirect("/signup");
+				}
+				else
+				{
+					maildata.mailsent=false; request.maildata=maildata;
+					return next();
+				}
+			}
+			else
+			{ maildata.mailsent=true; request.maildata=maildata; return next(); }
+		}	
+	})(request,response,next);
 }
+
+function resendVerification(request,response,next)
+{
+	const username=request.query.username,message=checkUserName(username);
+	if (message!==null) response.status(400).send(message);
+	else
+	{
+		persist.findUserByName(username).then(function(dataObj)
+		{
+			if (!dataObj) response.sendStatus(404);
+			else
+			{
+				const maildata={ username: username };
+				sendVerificationMail(dataObj.email,username).
+				then(() => maildata.mailsent=true).
+				catch(() => maildata.mailsent=false).finally(function()
+				{ request.maildata=maildata; next(); });
+			}
+		}).catch(error => next(error));
+	}
+}
+
+function handleMailSendResult(request,response)
+{
+	const maildata=request.maildata; let statusData;
+	if (maildata.mailsent)
+	{
+		statusData=
+		{
+			title: "Success!", linktext: "Resend mail",
+			content: "Check your mail box for a verification message."
+		};
+	}
+	else
+	{
+		statusData=
+		{ 
+			title: "Oops...", linktext: "Try again",
+			content: "There was a problem sending you a verification mail."
+		};
+	}
+	statusData.link=generateResendLink(maildata.username);
+	response.render("statuspage.njk.html",statusData);
+}
+
+function generateResendLink(username)
+{ return `/resend-verify?username=${username}`; }
 
 function checkCredentials(username,password)
 {
@@ -206,6 +308,80 @@ function checkUserName(username)
 	}
 	else return null;
 }
+
+function checkEmailAddress(email)
+{
+	if (!email) return "Missing e-mail!";
+	else if ((email.length<MIN_EMAIL_LENGTH)||(email.length>MAX_EMAIL_LENGTH))
+		return "E-mail is either too short or too long!";
+	else
+	{
+		/*To shorten the process and save time, only a basic validation is 
+		  performed. The rest will be done by sending a verification mail*/
+		const separatorIndex=email.indexOf("@");
+		if ((separatorIndex===-1)||(email.indexOf(".",separatorIndex)===-1))
+			return "Invalid e-mail!";
+		else return null;
+	}
+}
+
+const MAIL_TOKEN_SECRET="tainted vampire";
+
+function sendVerificationMail(email,username)
+{
+	//No e-mail uniqueness requirement for now, so use only the username for encoding
+	const tokenData={ username: username };
+	return new Promise(function(resolve,reject)
+	{
+		workersPool.executeTask("generateWebToken",[tokenData,MAIL_TOKEN_SECRET,"30m"]).
+		then(function(token)
+		{
+			const subject=`Welcome to TextShare, ${username}!`;
+			const content=`<span style="font-size: larger;">
+			Click <a href="https://localhost:4096/verifyuser?token=${token}">
+			here</a> to verify your account.<br/>
+			Enjoy sharing your texts!</span>`;
+			sendMail(email,subject,"",content);
+		}).then(() => resolve()).catch(error => reject(error));
+	});
+}
+
+server.get("/verifyuser",async function(request,response,next)
+{
+	const token=request.query.token; let tokenData,handled=false;
+	try
+	{ 
+		tokenData=await workersPool.executeTask("verifyWebToken",[token,
+				MAIL_TOKEN_SECRET]);
+	}
+	catch(error)
+	{
+		if (error.name==="TokenExpiredError")
+		{
+			const statusData=
+			{
+				title: "Too late...", linktext: "Resend mail",
+				content: "Your verification link has expired!",
+				link: generateResendLink(error.decoded.username)
+			};
+			response.render("statuspage.njk.html",statusData);
+		}
+		else response.sendStatus(403); //Forbidden
+		handled=true;
+	}
+	if (!handled)
+	{
+		persist.verifyUser(tokenData.username).then(function()
+		{
+			const statusData=
+			{
+				title: "Success!", link: "/login", linktext: "sign in",
+				content: "Your account is verified! You can now "
+			};
+			response.render("statuspage.njk.html",statusData);
+		}).catch(error => next(error));
+	}
+});
 
 server.get(`/:addresskey(${addresskeyPattern})`,function(request,response,next)
 {

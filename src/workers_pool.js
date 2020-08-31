@@ -57,7 +57,9 @@ WorkersPool.prototype.executeTask=function(taskname,params)
 function taskworkFinished(worker,result)
 {
 	let taskData=worker[taskDataID];
-	if (result instanceof Error) taskData.controller.throw(result);
+	if ((result instanceof Error)||(result.hasOwnProperty("name"))&&
+			(result.hasOwnProperty("message")))
+		taskData.controller.throw(result);
 	else taskData.controller.next(result);
 	const privateProps=privatePropsMap.get(this);
 	taskData=privateProps.taskQueue.removeLast();

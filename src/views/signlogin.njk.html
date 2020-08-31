@@ -8,7 +8,12 @@
 {% endblock %}
 {% block content %}
 	{% if submiterror %}
-	<span class="text-danger mt-3">{{ submiterror }}</span>
+	<span class="text-danger mt-3">
+		{{ submiterror.errortext }}
+		{% if submiterror.link %}
+		&nbsp;<a href="{{ submiterror.link }}">{{ submiterror.linktext }}</a>
+		{% endif %}
+	</span>
 	{% endif %}
 	<form id="signloginForm" action="{{ '/signup' if signup else '/login' }}"
 		method="post" class="{{ 'mt-3' if submiterror else 'mt-4' }}">
@@ -24,6 +29,19 @@
 					pattern="{{ usernamePattern }}"/>
 			</div>
 		</div>
+		{% if signup %}
+		<div class="form-row">
+			<div class="col-2 col-lg-1">
+				<label for="emailInput" class="col-form-label">Email:</label>
+				<span class="align-middle" style="color: red;">*</span>
+			</div>
+			<div class="col-6 col-lg-3">
+				<input id="emailInput" name="email" type="text" overflow="auto" required 
+					minlength="{{ minEmailLength }}" maxlength="{{ maxEmailLength }}"
+					placeholder="Your e-mail" spellcheck="false" class="form-control w-100"/>
+			</div>
+		</div>
+		{% endif %}
 		<div class="form-row">
 			<div class="col-2 col-lg-1">
 				<label for="passwordInput" class="col-form-label">Password:</label>
@@ -45,4 +63,16 @@
 			</div>
 		</div>
 	</form>
+{% endblock %}
+
+{% block scripts %}
+	<script type="text/javascript">
+		window.onload=function()
+		{
+			const usernamePattern=document.getElementById("usernameInput").pattern;
+			usernamePattern=usernamePattern.substring(1,usernamePattern.length-1);
+			document.getElementById("emailInput").pattern="^" + usernamePattern + "@" + 
+					usernamePattern + "\\." + usernamePattern + "$";
+		}
+	</script>
 {% endblock %}

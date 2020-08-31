@@ -1,0 +1,13 @@
+{% extends "sitepage.njk.html" %}
+{% block pagetitle %}
+	Status Message
+{% endblock %}
+{% block contenttitle %}
+	{{ title }}
+{% endblock %}
+{% block content %}
+	{{ content }}
+	{% if link %}
+	<a href="{{ link }}">{{ linktext }}</a>
+	{% endif %}
+{% endblock %}

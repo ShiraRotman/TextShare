@@ -1,6 +1,8 @@
 
-const {parentPort}=require("worker_threads"),crypto=require("crypto");
-const tasksMap={ hashPlainData, analyzeBlockQuote };
+const {parentPort}=require("worker_threads");
+const crypto=require("crypto"),tokens=require("jsonwebtoken");
+const tasksMap=
+{ hashPlainData, analyzeBlockQuote, generateWebToken, verifyWebToken };
 
 parentPort.on("message",function(taskData)
 {
@@ -21,6 +23,27 @@ function hashPlainData(algorithm,encoding,...data)
 	const hashing=crypto.createHash(algorithm);
 	for (let datum of data) hashing.update(datum);
 	parentPort.postMessage(hashing.digest(encoding));
+}
+
+function generateWebToken(data,secret,expiration)
+{
+	if (typeof(data)!=="object") data={ data: data };
+	const token=tokens.sign(data,secret,{ expiresIn: expiration });
+	parentPort.postMessage(token);
+}
+
+function verifyWebToken(token,secret,nonce)
+{
+	const options={ }; let tokenData;
+	if (nonce) options.nonce=nonce;
+	try { tokenData=tokens.verify(token,secret,options); }
+	catch(error)
+	{
+		if (error instanceof tokens.TokenExpiredError)
+			error.decoded=tokens.decode(token);
+		throw error;
+	}
+	parentPort.postMessage(tokenData);
 }
 
 function analyzeBlockQuote(blockquote)
