@@ -134,6 +134,14 @@ server.use(session(
 	saveUninitialized: false, cookie: {maxAge: 1800000, secure: true} //30*60*1000
 }));
 
+server.use(function(request,response,next)
+{
+	if ((request.session.submiterror)&&((request.path!=="/login")&&(request.
+			path!=="/signup")||(request.method!=="GET")))
+		delete request.session.submiterror;
+	next();
+});
+
 const viewsdir=pathutils.join(__dirname,"views");
 renderer.configure(viewsdir,{ autoescape: true, express: server });
 server.use(express.urlencoded({extended: true}));
@@ -198,9 +206,6 @@ server.post("/login",function(request,response,next)
 		}
 		else request.login(userdata,function(err)
 		{
-			/*TODO: Convert to a middleware since now the client gets the 
-			  message if it switches to another page, and then returns*/
-			delete request.session.submiterror;
 			if (err) return next(err);
 			else return response.redirect("/");
 		});
