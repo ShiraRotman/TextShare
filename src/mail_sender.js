@@ -3,14 +3,14 @@ const mailer=require("nodemailer");
 const transporter=mailer.createTransport(
 { 
 	host: "smtp.zoho.com", port: 465, secure: true,
-	auth: { user: "nictotrax@zohomail.com", pass: "withoutaclank" }
+	auth: { user: process.env.MAIL_USER, pass: process.env.MAIL_PASS }
 });
 
 module.exports=function(address,subject,textContent,htmlContent)
 {
 	const mailOptions=
 	{ 
-		from: "nictotrax@zohomail.com",
+		from: process.env.MAIL_USER,
 		replyTo: "support@textshare.com", to: address
 	};
 	if (subject) mailOptions.subject=subject;
