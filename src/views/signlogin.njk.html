@@ -66,10 +66,14 @@
 	<script type="text/javascript">
 		window.onload=function()
 		{
-			const usernamePattern=document.getElementById("usernameInput").pattern;
+			let usernamePattern=document.getElementById("usernameInput").pattern;
 			usernamePattern=usernamePattern.substring(1,usernamePattern.length-1);
-			document.getElementById("emailInput").pattern="^" + usernamePattern + "@" + 
-					usernamePattern + "\\." + usernamePattern + "$";
+			const emailInput=document.getElementById("emailInput");
+			if (emailInput!==null)
+			{
+				emailInput.pattern="^" + usernamePattern + "@" + usernamePattern + 
+						"\\." + usernamePattern + "$";
+			}
 		}
 	</script>
 {% endblock %}
