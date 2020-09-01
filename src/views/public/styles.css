@@ -4,6 +4,7 @@
 .image-button { cursor: pointer; margin-left: 0.25rem; margin-right: 0.25rem; }
 select { padding-left: 0.25rem !important; }
 option:disabled { color: lightgray; }
+label.for-required::after { content: "*"; color: red; }
 .form-row > div:first-child,.form-row > label:first-child 
 { padding-left: 0 !important; }
 

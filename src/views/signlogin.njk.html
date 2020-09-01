@@ -18,10 +18,9 @@
 	<form id="signloginForm" action="{{ '/signup' if signup else '/login' }}"
 		method="post" class="{{ 'mt-3' if submiterror else 'mt-4' }}">
 		<div class="form-row">
-			<div class="col-2 col-lg-1">
-				<label for="usernameInput" class="col-form-label">Username:</label>
-				<span class="align-middle" style="color: red">*</span>
-			</div>
+			<label for="usernameInput" class="col-2 col-lg-1 col-form-label for-required">
+				Username:
+			</label>
 			<div class="col-6 col-lg-3">
 				<input id="usernameInput" name="username" type="text" autofocus required
 					minlength="{{ minUsernameLength }}" maxlength="{{ maxUsernameLength }}"
@@ -31,10 +30,9 @@
 		</div>
 		{% if signup %}
 		<div class="form-row">
-			<div class="col-2 col-lg-1">
-				<label for="emailInput" class="col-form-label">Email:</label>
-				<span class="align-middle" style="color: red;">*</span>
-			</div>
+			<label for="emailInput" class="col-2 col-lg-1 col-form-label for-required">
+				Email:
+			</label>
 			<div class="col-6 col-lg-3">
 				<input id="emailInput" name="email" type="text" overflow="auto" required 
 					minlength="{{ minEmailLength }}" maxlength="{{ maxEmailLength }}"
@@ -43,10 +41,9 @@
 		</div>
 		{% endif %}
 		<div class="form-row">
-			<div class="col-2 col-lg-1">
-				<label for="passwordInput" class="col-form-label">Password:</label>
-				<span class="align-middle" style="color: red;">*</span>
-			</div>
+			<label for="passwordInput" class="col-2 col-lg-1 col-form-label for-required">
+				Password:
+			</label>
 			<div class="col-6 col-lg-3">
 				<!-- TODO: Add pattern validation -->
 				<input id="passwordInput" name="password" type="password" required
